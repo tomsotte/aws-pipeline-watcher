@@ -12,9 +12,9 @@ A Ruby CLI tool that provides live updates showing the status of AWS CodePipelin
 
 ## Prerequisites
 
-- Ruby 2.7.0 or higher
+- Ruby 2.6.0 or higher
 - AWS account with CodePipeline access
-- AWS credentials (Access Key ID and Secret Access Key)
+- AWS CLI configured (recommended) OR AWS credentials (Access Key ID and Secret Access Key)
 
 ## Installation
 
@@ -51,18 +51,41 @@ Run the configuration command to set up your AWS credentials and specify pipelin
 ./bin/pipeline-watcher config
 ```
 
-You'll be prompted for:
+The tool will automatically detect your AWS CLI configuration if available. You'll be prompted for:
+
+**Option A: Use AWS CLI (Recommended)**
+- The tool will auto-detect your AWS CLI configuration
+- Just confirm to use AWS CLI credentials when prompted
+- Region and Account ID will be detected automatically
+
+**Option B: Manual Credentials**
 - **AWS Access Key ID**: Your AWS access key
 - **AWS Secret Access Key**: Your AWS secret key  
 - **AWS Region**: The AWS region where your pipelines are located (default: us-east-1)
 - **AWS Account ID**: Your AWS account ID (12-digit number)
+
+**For both options:**
 - **Pipeline names**: Comma-separated list of pipeline names to monitor
 
 ### Configuration File
 
 Settings are stored in `~/.pipeline_watcher_config.yml`:
 
+**Using AWS CLI (Recommended):**
 ```yaml
+use_aws_cli: true
+aws_profile: default
+aws_region: us-east-1
+aws_account_id: "123456789012"
+pipeline_names:
+  - my-pipeline-1
+  - my-pipeline-2
+  - production-pipeline
+```
+
+**Using Manual Credentials:**
+```yaml
+use_aws_cli: false
 aws_access_key_id: YOUR_ACCESS_KEY
 aws_secret_access_key: YOUR_SECRET_KEY
 aws_region: us-east-1
@@ -187,16 +210,18 @@ rake clean        # Clean up build artifacts
 
 ### Common Issues
 
-1. **Invalid credentials**: Verify your AWS Access Key ID and Secret Access Key
+1. **Invalid credentials**: Verify your AWS credentials (CLI or manual)
 2. **Permission denied**: Ensure your AWS user has the required CodePipeline permissions
 3. **Pipeline not found**: Check pipeline name spelling and AWS region
 4. **Connection issues**: Verify internet connection and firewall settings
+5. **AWS CLI not detected**: Install and configure AWS CLI with `aws configure`
 
 ### Getting Help
 
 - Check the [INSTALLATION.md](INSTALLATION.md) for detailed setup instructions
 - Run `pipeline-watcher help` for command information
 - Verify your AWS credentials and permissions
+- Test AWS CLI with `aws sts get-caller-identity` and `aws configure list`
 
 ## Contributing
 

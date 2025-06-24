@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
+
+ruby '>= 2.6.0'
+
+gem 'aws-sdk-codepipeline', '~> 1.0'
+gem 'colorize', '~> 0.8'
+gem 'thor', '~> 1.0'
+
+group :development do
+  gem 'rake', '~> 13.0'
+  gem 'rspec', '~> 3.0'
+  gem 'rubocop', '~> 1.0'
+end

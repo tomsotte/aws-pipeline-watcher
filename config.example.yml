@@ -1,0 +1,21 @@
+# Example configuration file for AWS Pipeline Watcher
+# Copy this file to ~/.pipeline_watcher_config.yml and update with your values
+
+# Option 1: Use AWS CLI credentials (recommended)
+# The tool will automatically detect your AWS CLI configuration
+use_aws_cli: true
+aws_profile: default # or specify your profile name
+aws_region: us-east-1
+aws_account_id: "123456789012" # auto-detected from AWS CLI
+
+# Option 2: Manual AWS credentials (alternative)
+# aws_access_key_id: YOUR_AWS_ACCESS_KEY_ID
+# aws_secret_access_key: YOUR_AWS_SECRET_ACCESS_KEY
+# use_aws_cli: false
+
+# List of pipeline names to monitor
+pipeline_names:
+  - my-web-app-pipeline
+  - api-service-pipeline
+  - database-migration-pipeline
+  - frontend-deployment
