@@ -9,6 +9,8 @@ AWS Pipeline Watcher is a comprehensive Ruby CLI tool that provides real-time mo
 ### Core Features Implemented
 
 - **✅ Real-time Pipeline Monitoring**: Updates every 5 seconds with live status information
+- **✅ Steady UI with No Flickering**: In-place updates without screen blinking or clearing
+- **✅ Accurate Status Detection**: Intelligent status logic that shows true pipeline state
 - **✅ Color-coded Status Display**: Visual indicators for different pipeline states
 - **✅ AWS CLI Integration**: Automatic detection and use of AWS CLI credentials (recommended)
 - **✅ Manual Credential Support**: Alternative option for manual AWS credential configuration
@@ -16,6 +18,8 @@ AWS Pipeline Watcher is a comprehensive Ruby CLI tool that provides real-time mo
 - **✅ Detailed Execution Information**: Shows status, revision, timing, and current steps
 - **✅ Configuration Management**: Easy setup and persistent configuration storage
 - **✅ Comprehensive Error Handling**: Graceful handling of AWS API errors and connection issues
+- **✅ Professional UI Experience**: Smooth cursor positioning and selective content updates
+- **✅ Status Consistency**: Pipeline status always matches step information display
 
 ## 📁 Project Structure
 
@@ -59,11 +63,14 @@ aws-pipeline-watcher/
 - **Configuration Validation**: Ensures all required fields are present
 
 ### 3. Real-time Monitoring
-- **Live Updates**: Refreshes every 5 seconds
+- **Live Updates**: Refreshes every 5 seconds with steady, flicker-free UI
+- **In-Place Updates**: Only changed content refreshes, no screen clearing
 - **Pipeline Status**: Shows current execution status
 - **Step Tracking**: Identifies currently running or failed steps
 - **Timer Display**: Shows execution duration with running/completed indicators
 - **Source Revision**: Displays commit hash (first 8 characters)
+- **Status Accuracy**: Intelligent detection handles AWS API timing discrepancies
+- **Smooth Experience**: Professional terminal application appearance
 
 ### 4. User Experience
 - **Color-coded Output**: 
@@ -71,9 +78,12 @@ aws-pipeline-watcher/
   - Red: Failed
   - Yellow: InProgress
   - Light Red: Stopped
+- **Steady UI**: No screen flickering or blinking during updates
+- **Smart Updates**: Only modified data refreshes, maintaining visual context
 - **Clear Display Format**: Organized, easy-to-read pipeline information
 - **Interactive Configuration**: Step-by-step setup process
 - **Comprehensive Help**: Built-in help system and documentation
+- **Professional Appearance**: Smooth terminal application experience
 
 ## 🔧 Technical Implementation
 
@@ -81,6 +91,8 @@ aws-pipeline-watcher/
 - **Modular Design**: Separated CLI interface from core monitoring logic
 - **Thor Framework**: Robust command-line interface framework
 - **AWS SDK Integration**: Official AWS SDK for Ruby for reliable API access
+- **Advanced UI Control**: ANSI escape sequences for smooth terminal rendering
+- **State Management**: Intelligent change detection for selective updates
 - **Error Handling**: Comprehensive error handling for network and API issues
 
 ### Dependencies
@@ -131,10 +143,11 @@ AWS Pipeline Watcher - Last updated: 2024-01-15 14:30:25
 ## 🧪 Testing & Quality
 
 ### Test Coverage
-- **23 Test Cases**: Comprehensive test suite covering all major functionality
+- **27 Test Cases**: Comprehensive test suite covering all major functionality
 - **Configuration Validation**: Tests for both AWS CLI and manual credential validation
 - **Time Formatting**: Tests for duration formatting across different time ranges
 - **AWS Integration**: Mocked tests for AWS client initialization
+- **Status Logic**: Tests for accurate status detection and consistency
 - **Error Handling**: Tests for various error conditions
 
 ### Code Quality
@@ -233,13 +246,15 @@ bundle exec ./bin/pipeline-watcher
 - **Graceful Degradation**: Shows partial information when some data unavailable
 - **Clean Exit**: Proper signal handling for Ctrl+C interruption
 
-## 📈 Performance Considerations
+### Performance Considerations
 
 ### Optimizations Implemented
 - **Efficient API Calls**: Minimal AWS API calls per refresh cycle
 - **Caching**: Pipeline state caching to reduce API overhead
 - **Batch Operations**: Single API calls for multiple pipeline information
-- **Terminal Optimization**: Efficient screen clearing and redraw
+- **UI Optimization**: In-place updates with cursor positioning instead of full screen redraws
+- **State Comparison**: Only update display when actual data changes
+- **Reduced I/O**: Minimal terminal output operations for better performance
 
 ### Scalability
 - **Multiple Pipelines**: Efficiently handles monitoring of many pipelines
@@ -258,11 +273,14 @@ bundle exec ./bin/pipeline-watcher
 
 ### 🔄 Enhanced Beyond Requirements
 1. **AWS CLI Integration**: Auto-detection and secure credential management
-2. **Comprehensive Testing**: 23+ test cases with full coverage
-3. **Multiple Documentation**: README, Installation, QuickStart guides
-4. **Demo Mode**: Interactive demonstration of features
-5. **Code Quality**: RuboCop integration and Ruby best practices
-6. **Flexible Configuration**: Support for both AWS CLI and manual credentials
+2. **Steady UI Experience**: Flicker-free monitoring with in-place updates
+3. **Accurate Status Detection**: Intelligent status logic for true pipeline state
+4. **Advanced Terminal Control**: Professional UI using ANSI escape sequences
+5. **Comprehensive Testing**: 27+ test cases with full coverage
+6. **Multiple Documentation**: Several guides for different use cases
+7. **Demo Mode**: Interactive demonstration of features
+8. **Code Quality**: RuboCop integration and Ruby best practices
+9. **Flexible Configuration**: Support for both AWS CLI and manual credentials
 
 ## 🏁 Ready for Production
 

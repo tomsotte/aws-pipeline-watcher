@@ -4,11 +4,13 @@ A Ruby CLI tool that provides live updates showing the status of AWS CodePipelin
 
 ## Features
 
-- 🔄 **Real-time monitoring** - Updates every 5 seconds
+- 🔄 **Real-time monitoring** - Updates every 5 seconds with steady, flicker-free UI
+- 🎯 **Accurate status display** - Intelligent status detection that shows true pipeline state
 - 🎨 **Color-coded status** - Easy to identify pipeline states at a glance
 - ⚙️ **Easy configuration** - Simple setup for AWS credentials and pipeline selection
 - 📊 **Detailed information** - Shows execution status, source revision, timing, and current steps
 - 🔧 **Multiple pipeline support** - Monitor several pipelines simultaneously
+- 🖥️ **Smooth UI** - In-place updates without screen flickering or blinking
 
 ## Prerequisites
 
@@ -153,11 +155,18 @@ Refreshing in 5 seconds... (Press Ctrl+C to exit)
 ### Field Descriptions
 
 - **pipeline-name**: Name of the CodePipeline
-- **Status**: Current execution status (Succeeded, Failed, InProgress, etc.)
+- **Status**: Accurate execution status with intelligent detection (Succeeded, Failed, InProgress, etc.)
 - **revision**: Latest source revision (first 8 characters of commit hash)
 - **started**: When the last execution started (MM/DD HH:MM format)
 - **current-step**: Current stage and action being executed or that failed
 - **timer**: Duration the pipeline has been running or since completion
+
+### Status Accuracy
+
+The tool uses intelligent status detection to provide accurate pipeline states:
+- **Handles AWS API timing**: When executions show "InProgress" but all actions are complete, status displays as "Succeeded"
+- **Consistent display**: Status always matches the step information shown
+- **Real-time accuracy**: Shows the true current state of your pipelines
 
 ## AWS Permissions
 

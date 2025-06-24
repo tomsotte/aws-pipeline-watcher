@@ -315,4 +315,55 @@ RSpec.describe PipelineWatcher::PipelineStatusWatcher do
       expect(result).to eq('N/A')
     end
   end
+
+  describe '#get_current_step_info' do
+    let(:watcher) do
+      allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
+      PipelineWatcher::PipelineStatusWatcher.new(config)
+    end
+
+    let(:mock_client) { double('client') }
+
+    before do
+      watcher.instance_variable_set(:@client, mock_client)
+    end
+
+    it 'returns running action info when action is in progress' do
+      running_action = double('action', status: 'InProgress', stage_name: 'Deploy', action_name: 'DeployAction')
+      response = double('response', action_execution_details: [running_action])
+      allow(mock_client).to receive(:list_action_executions).and_return(response)
+
+      result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
+      expect(result[:step]).to eq('Deploy:DeployAction')
+      expect(result[:actual_status]).to eq('InProgress')
+    end
+
+    it 'returns failed action info when action has failed' do
+      failed_action = double('action', status: 'Failed', stage_name: 'Test', action_name: 'TestAction')
+      response = double('response', action_execution_details: [failed_action])
+      allow(mock_client).to receive(:list_action_executions).and_return(response)
+
+      result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
+      expect(result[:step]).to eq('Test:TestAction (FAILED)')
+      expect(result[:actual_status]).to eq('Failed')
+    end
+
+    it 'returns completed info when no actions are running or failed' do
+      completed_action = double('action', status: 'Succeeded', stage_name: 'Build', action_name: 'BuildAction')
+      response = double('response', action_execution_details: [completed_action])
+      allow(mock_client).to receive(:list_action_executions).and_return(response)
+
+      result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
+      expect(result[:step]).to eq('Completed')
+      expect(result[:actual_status]).to eq('Succeeded')
+    end
+
+    it 'returns unknown info when an error occurs' do
+      allow(mock_client).to receive(:list_action_executions).and_raise(StandardError.new('API Error'))
+
+      result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
+      expect(result[:step]).to eq('Unknown')
+      expect(result[:actual_status]).to be_nil
+    end
+  end
 end

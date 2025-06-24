@@ -175,69 +175,209 @@ module PipelineWatcher
     end
 
     def start_watching
+      @first_run = true
+      @pipeline_data = {}
+
       puts "AWS Pipeline Watcher - Monitoring #{@config['pipeline_names'].size} pipeline(s)".colorize(:cyan)
       puts 'Press Ctrl+C to exit'.colorize(:yellow)
       puts '=' * 80
 
       trap('INT') do
+        show_cursor
         puts "\nExiting...".colorize(:yellow)
         exit
       end
 
+      # Hide cursor to prevent flickering
+      hide_cursor
+
       loop do
-        clear_screen
-        display_header
-        @config['pipeline_names'].each do |pipeline_name|
-          display_pipeline_status(pipeline_name)
+        if @first_run
+          display_initial_screen
+          @first_run = false
+        else
+          update_display_in_place
         end
-        display_footer
         sleep 5
       rescue Aws::Errors::ServiceError => e
-        puts "AWS Error: #{e.message}".colorize(:red)
+        display_error("AWS Error: #{e.message}")
         sleep 10
       rescue StandardError => e
-        puts "Error: #{e.message}".colorize(:red)
+        display_error("Error: #{e.message}")
         sleep 10
       end
+    ensure
+      show_cursor
     end
 
     private
 
-    def clear_screen
-      system('clear') || system('cls')
+    def hide_cursor
+      print "\e[?25l"
     end
 
-    def display_header
+    def show_cursor
+      print "\e[?25h"
+    end
+
+    def move_cursor_to(row, col)
+      print "\e[#{row};#{col}H"
+    end
+
+    def clear_line
+      print "\e[K"
+    end
+
+    def save_cursor_position
+      print "\e[s"
+    end
+
+    def restore_cursor_position
+      print "\e[u"
+    end
+
+    def display_initial_screen
+      # Clear screen once and set up the static layout
+      system('clear') || system('cls')
+
+      # Display header
       puts "AWS Pipeline Watcher - Last updated: #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}".colorize(:cyan)
       puts '=' * 80
       puts
-    end
 
-    def display_footer
+      # Reserve space for each pipeline (3 lines per pipeline)
+      @config['pipeline_names'].each_with_index do |pipeline_name, index|
+        @pipeline_data[pipeline_name] = { row: 4 + (index * 3), last_display: '' }
+        puts # Pipeline status line
+        puts # Pipeline details line
+        puts # Empty line
+      end
+
       puts
       puts 'Refreshing in 5 seconds... (Press Ctrl+C to exit)'.colorize(:light_black)
+
+      # Now populate with actual data
+      @config['pipeline_names'].each do |pipeline_name|
+        update_pipeline_display(pipeline_name)
+      end
+
+      # Update header timestamp
+      update_header_timestamp
     end
 
-    def display_pipeline_status(pipeline_name)
-      pipeline_execution = get_latest_execution(pipeline_name)
+    def update_display_in_place
+      # Update timestamp in header
+      update_header_timestamp
 
-      if pipeline_execution
-        status = pipeline_execution.status
-        started_at = pipeline_execution.start_time
-        source_revision = get_source_revision(pipeline_execution)
-
-        # Get current step info
-        current_step_info = get_current_step_info(pipeline_name, pipeline_execution.pipeline_execution_id)
-
-        # Calculate timer
-        timer = calculate_timer(started_at, status)
-
-        display_pipeline_line(pipeline_name, status, source_revision, started_at, current_step_info, timer)
-      else
-        puts "• #{pipeline_name.ljust(25)} | No executions found".colorize(:light_black)
+      # Update each pipeline's display
+      @config['pipeline_names'].each do |pipeline_name|
+        update_pipeline_display(pipeline_name)
       end
-    rescue StandardError => e
-      puts "• #{pipeline_name.ljust(25)} | Error: #{e.message}".colorize(:red)
+    end
+
+    def update_header_timestamp
+      move_cursor_to(1, 1)
+      clear_line
+      print "AWS Pipeline Watcher - Last updated: #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}".colorize(:cyan)
+    end
+
+    def display_error(message)
+      # Display error at the bottom without disrupting the main display
+      save_cursor_position
+      move_cursor_to(@config['pipeline_names'].size * 3 + 6, 1)
+      clear_line
+      print message.colorize(:red)
+      restore_cursor_position
+    end
+
+    def update_pipeline_display(pipeline_name)
+      begin
+        pipeline_execution = get_latest_execution(pipeline_name)
+
+        if pipeline_execution
+          status = pipeline_execution.status
+          started_at = pipeline_execution.start_time
+          source_revision = get_source_revision(pipeline_execution)
+
+          # Get current step info and actual status
+          step_info = get_current_step_info(pipeline_name, pipeline_execution.pipeline_execution_id)
+
+          # Use the actual status from step analysis if it's more accurate than execution status
+          actual_status = step_info[:actual_status] || status
+
+          # If execution says InProgress but steps show Completed, trust the steps
+          if status == 'InProgress' && step_info[:step] == 'Completed'
+            actual_status = 'Succeeded'
+          end
+
+          # Calculate timer
+          timer = calculate_timer(started_at, actual_status)
+
+          new_display = format_pipeline_display(pipeline_name, actual_status, source_revision, started_at, step_info[:step], timer)
+        else
+          new_display = format_no_execution_display(pipeline_name)
+        end
+
+        # Only update if the display has changed
+        pipeline_info = @pipeline_data[pipeline_name]
+        if pipeline_info[:last_display] != new_display
+          update_pipeline_lines(pipeline_name, new_display)
+          pipeline_info[:last_display] = new_display
+        end
+      rescue StandardError => e
+        error_display = format_error_display(pipeline_name, e.message)
+        pipeline_info = @pipeline_data[pipeline_name]
+        if pipeline_info[:last_display] != error_display
+          update_pipeline_lines(pipeline_name, error_display)
+          pipeline_info[:last_display] = error_display
+        end
+      end
+    end
+
+    def format_pipeline_display(name, status, revision, started_at, step_info, timer)
+      status_color = case status
+                    when 'Succeeded' then :green
+                    when 'Failed' then :red
+                    when 'InProgress' then :yellow
+                    when 'Stopped' then :light_red
+                    else :white
+                    end
+
+      started_str = started_at ? started_at.strftime('%m/%d %H:%M') : 'N/A'
+
+      line1 = "• #{name.ljust(25)} | #{status.colorize(status_color).ljust(20)} | #{revision.ljust(10)} | #{started_str.ljust(12)}"
+      line2 = "  #{step_info.ljust(40)} | #{timer}".colorize(:light_black)
+
+      { line1: line1, line2: line2 }
+    end
+
+    def format_no_execution_display(pipeline_name)
+      line1 = "• #{pipeline_name.ljust(25)} | No executions found".colorize(:light_black)
+      line2 = "  N/A".colorize(:light_black)
+
+      { line1: line1, line2: line2 }
+    end
+
+    def format_error_display(pipeline_name, error_message)
+      line1 = "• #{pipeline_name.ljust(25)} | Error: #{error_message}".colorize(:red)
+      line2 = "  Connection issue".colorize(:light_black)
+
+      { line1: line1, line2: line2 }
+    end
+
+    def update_pipeline_lines(pipeline_name, display_data)
+      pipeline_info = @pipeline_data[pipeline_name]
+      row = pipeline_info[:row]
+
+      # Update first line (pipeline status)
+      move_cursor_to(row, 1)
+      clear_line
+      print display_data[:line1]
+
+      # Update second line (step info)
+      move_cursor_to(row + 1, 1)
+      clear_line
+      print display_data[:line2]
     end
 
     def get_latest_execution(pipeline_name)
@@ -271,14 +411,14 @@ module PipelineWatcher
       failed_action = response.action_execution_details.find { |action| action.status == 'Failed' }
 
       if running_action
-        "#{running_action.stage_name}:#{running_action.action_name}"
+        { step: "#{running_action.stage_name}:#{running_action.action_name}", actual_status: 'InProgress' }
       elsif failed_action
-        "#{failed_action.stage_name}:#{failed_action.action_name} (FAILED)"
+        { step: "#{failed_action.stage_name}:#{failed_action.action_name} (FAILED)", actual_status: 'Failed' }
       else
-        'Completed'
+        { step: 'Completed', actual_status: 'Succeeded' }
       end
     rescue StandardError
-      'Unknown'
+      { step: 'Unknown', actual_status: nil }
     end
 
     def calculate_timer(started_at, status)
@@ -310,20 +450,6 @@ module PipelineWatcher
       end
     end
 
-    def display_pipeline_line(name, status, revision, started_at, step_info, timer)
-      status_color = case status
-                     when 'Succeeded' then :green
-                     when 'Failed' then :red
-                     when 'InProgress' then :yellow
-                     when 'Stopped' then :light_red
-                     else :white
-                     end
 
-      started_str = started_at ? started_at.strftime('%m/%d %H:%M') : 'N/A'
-
-      puts "• #{name.ljust(25)} | #{status.colorize(status_color).ljust(20)} | #{revision.ljust(10)} | #{started_str.ljust(12)}"
-      puts "  #{step_info.ljust(40)} | #{timer}".colorize(:light_black)
-      puts
-    end
   end
 end

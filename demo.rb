@@ -166,6 +166,9 @@ puts '✓ Multiple pipeline support'
 puts '✓ Easy configuration management'
 puts '✓ Timer tracking for execution duration'
 puts '✓ Current step identification'
+puts '✓ Steady UI - No screen flickering or blinking!'
+puts '✓ In-place updates - Only changed data refreshes'
+puts '✓ Smooth cursor positioning for better UX'
 puts
 
 puts 'Getting Started:'.colorize(:yellow)
