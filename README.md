@@ -6,6 +6,7 @@ A Ruby CLI tool that provides live updates showing the status of AWS CodePipelin
 
 - 🔄 **Real-time monitoring** - Updates every 5 seconds with steady, flicker-free UI
 - 🎯 **Accurate status display** - Intelligent status detection that shows true pipeline state
+- 🚨 **Error details for failures** - Failed pipelines show 2-3 lines of actionable error information
 - 🎨 **Color-coded status** - Easy to identify pipeline states at a glance
 - ⚙️ **Easy configuration** - Simple setup for AWS credentials and pipeline selection
 - 📊 **Detailed information** - Shows execution status, source revision, timing, and current steps
@@ -148,6 +149,8 @@ AWS Pipeline Watcher - Last updated: 2024-01-15 14:30:25
 
 • database-migration      | Failed               | i9j0k1l2   | 01/15 14:20
   Test:RunIntegrationTests (FAILED)        | 10m 15s (completed)
+    ⚠️  Error: Test suite failed with 3 failures in UserServiceTest
+    ⚠️  Summary: Integration tests could not connect to database
 
 Refreshing in 5 seconds... (Press Ctrl+C to exit)
 ```
@@ -160,6 +163,7 @@ Refreshing in 5 seconds... (Press Ctrl+C to exit)
 - **started**: When the last execution started (MM/DD HH:MM format)
 - **current-step**: Current stage and action being executed or that failed
 - **timer**: Duration the pipeline has been running or since completion
+- **error-details**: For failed pipelines, 2-3 lines of actionable error information (⚠️ icon)
 
 ### Status Accuracy
 
@@ -167,6 +171,15 @@ The tool uses intelligent status detection to provide accurate pipeline states:
 - **Handles AWS API timing**: When executions show "InProgress" but all actions are complete, status displays as "Succeeded"
 - **Consistent display**: Status always matches the step information shown
 - **Real-time accuracy**: Shows the true current state of your pipelines
+
+### Error Details for Failed Pipelines
+
+When pipelines fail, the tool automatically displays helpful debugging information:
+- **Error messages**: Direct error messages from AWS CodePipeline actions
+- **Failure summaries**: Additional context from build/test/deploy tools
+- **Smart truncation**: Long messages are shortened for terminal readability
+- **Visual indicators**: Red warning icons (⚠️) highlight error details
+- **No configuration needed**: Error details appear automatically for failed pipelines
 
 ## AWS Permissions
 

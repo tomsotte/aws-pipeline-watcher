@@ -11,6 +11,7 @@ AWS Pipeline Watcher is a comprehensive Ruby CLI tool that provides real-time mo
 - **✅ Real-time Pipeline Monitoring**: Updates every 5 seconds with live status information
 - **✅ Steady UI with No Flickering**: In-place updates without screen blinking or clearing
 - **✅ Accurate Status Detection**: Intelligent status logic that shows true pipeline state
+- **✅ Error Details for Failed Pipelines**: Shows 2-3 lines of actionable error information
 - **✅ Color-coded Status Display**: Visual indicators for different pipeline states
 - **✅ AWS CLI Integration**: Automatic detection and use of AWS CLI credentials (recommended)
 - **✅ Manual Credential Support**: Alternative option for manual AWS credential configuration

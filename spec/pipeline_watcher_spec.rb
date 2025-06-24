@@ -336,16 +336,26 @@ RSpec.describe PipelineWatcher::PipelineStatusWatcher do
       result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
       expect(result[:step]).to eq('Deploy:DeployAction')
       expect(result[:actual_status]).to eq('InProgress')
+      expect(result[:error_details]).to be_nil
     end
 
     it 'returns failed action info when action has failed' do
-      failed_action = double('action', status: 'Failed', stage_name: 'Test', action_name: 'TestAction')
+      error_details = double('error_details', message: 'Build failed with exit code 1')
+      failed_action = double('action',
+        status: 'Failed',
+        stage_name: 'Test',
+        action_name: 'TestAction',
+        error_details: error_details,
+        output: nil
+      )
       response = double('response', action_execution_details: [failed_action])
       allow(mock_client).to receive(:list_action_executions).and_return(response)
 
       result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
       expect(result[:step]).to eq('Test:TestAction (FAILED)')
       expect(result[:actual_status]).to eq('Failed')
+      expect(result[:error_details]).to be_an(Array)
+      expect(result[:error_details].first).to include('Build failed with exit code 1')
     end
 
     it 'returns completed info when no actions are running or failed' do
@@ -356,6 +366,7 @@ RSpec.describe PipelineWatcher::PipelineStatusWatcher do
       result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
       expect(result[:step]).to eq('Completed')
       expect(result[:actual_status]).to eq('Succeeded')
+      expect(result[:error_details]).to be_nil
     end
 
     it 'returns unknown info when an error occurs' do
@@ -364,6 +375,75 @@ RSpec.describe PipelineWatcher::PipelineStatusWatcher do
       result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
       expect(result[:step]).to eq('Unknown')
       expect(result[:actual_status]).to be_nil
+      expect(result[:error_details]).to be_nil
+    end
+  end
+
+  describe '#get_failure_details' do
+    let(:watcher) do
+      allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
+      PipelineWatcher::PipelineStatusWatcher.new(config)
+    end
+
+    it 'returns error details when action has error message' do
+      error_details = double('error_details', message: 'Build failed with exit code 1')
+      failed_action = double('action',
+        error_details: error_details,
+        output: nil,
+        stage_name: 'Build'
+      )
+
+      result = watcher.send(:get_failure_details, failed_action)
+      expect(result).to be_an(Array)
+      expect(result.first).to include('Build failed with exit code 1')
+    end
+
+    it 'truncates long error messages' do
+      long_message = 'A' * 150  # 150 characters
+      error_details = double('error_details', message: long_message)
+      failed_action = double('action',
+        error_details: error_details,
+        output: nil,
+        stage_name: 'Build'
+      )
+
+      result = watcher.send(:get_failure_details, failed_action)
+      expect(result.first.length).to be < 135  # Should be truncated
+      expect(result.first).to include('...')
+    end
+
+    it 'returns generic message when no specific error details available' do
+      failed_action = double('action',
+        error_details: nil,
+        output: nil,
+        stage_name: 'Deploy'
+      )
+
+      result = watcher.send(:get_failure_details, failed_action)
+      expect(result).to include('Action failed in Deploy stage')
+      expect(result).to include('Check AWS Console for detailed error information')
+    end
+
+    it 'handles errors gracefully' do
+      failed_action = double('action')
+      allow(failed_action).to receive(:error_details).and_raise(StandardError.new('API Error'))
+
+      result = watcher.send(:get_failure_details, failed_action)
+      expect(result).to eq(['Failed action details unavailable'])
+    end
+
+    it 'limits results to maximum 3 lines' do
+      error_details = double('error_details', message: 'Error message')
+      execution_result = double('execution_result', external_execution_summary: 'Summary message')
+      output = double('output', execution_result: execution_result)
+      failed_action = double('action',
+        error_details: error_details,
+        output: output,
+        stage_name: 'Test'
+      )
+
+      result = watcher.send(:get_failure_details, failed_action)
+      expect(result.length).to be <= 3
     end
   end
 end

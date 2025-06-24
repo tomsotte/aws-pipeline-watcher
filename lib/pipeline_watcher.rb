@@ -245,12 +245,15 @@ module PipelineWatcher
       puts '=' * 80
       puts
 
-      # Reserve space for each pipeline (3 lines per pipeline)
+      # Reserve space for each pipeline (6 lines per pipeline: status, details, error1, error2, error3, spacing)
       @config['pipeline_names'].each_with_index do |pipeline_name, index|
-        @pipeline_data[pipeline_name] = { row: 4 + (index * 3), last_display: '' }
+        @pipeline_data[pipeline_name] = { row: 4 + (index * 6), last_display: '' }
         puts # Pipeline status line
         puts # Pipeline details line
-        puts # Empty line
+        puts # Error line 1 (if needed)
+        puts # Error line 2 (if needed)
+        puts # Error line 3 (if needed)
+        puts # Empty spacing line
       end
 
       puts
@@ -284,7 +287,7 @@ module PipelineWatcher
     def display_error(message)
       # Display error at the bottom without disrupting the main display
       save_cursor_position
-      move_cursor_to(@config['pipeline_names'].size * 3 + 6, 1)
+      move_cursor_to(@config['pipeline_names'].size * 6 + 6, 1)
       clear_line
       print message.colorize(:red)
       restore_cursor_position
@@ -313,7 +316,7 @@ module PipelineWatcher
           # Calculate timer
           timer = calculate_timer(started_at, actual_status)
 
-          new_display = format_pipeline_display(pipeline_name, actual_status, source_revision, started_at, step_info[:step], timer)
+          new_display = format_pipeline_display(pipeline_name, actual_status, source_revision, started_at, step_info[:step], timer, step_info[:error_details])
         else
           new_display = format_no_execution_display(pipeline_name)
         end
@@ -334,7 +337,7 @@ module PipelineWatcher
       end
     end
 
-    def format_pipeline_display(name, status, revision, started_at, step_info, timer)
+    def format_pipeline_display(name, status, revision, started_at, step_info, timer, error_details = nil)
       status_color = case status
                     when 'Succeeded' then :green
                     when 'Failed' then :red
@@ -348,7 +351,14 @@ module PipelineWatcher
       line1 = "• #{name.ljust(25)} | #{status.colorize(status_color).ljust(20)} | #{revision.ljust(10)} | #{started_str.ljust(12)}"
       line2 = "  #{step_info.ljust(40)} | #{timer}".colorize(:light_black)
 
-      { line1: line1, line2: line2 }
+      # Add error details for failed pipelines
+      lines = { line1: line1, line2: line2 }
+
+      if status == 'Failed' && error_details && !error_details.empty?
+        lines[:error_lines] = error_details.map { |detail| "    ⚠️  #{detail}".colorize(:red) }
+      end
+
+      lines
     end
 
     def format_no_execution_display(pipeline_name)
@@ -378,6 +388,27 @@ module PipelineWatcher
       move_cursor_to(row + 1, 1)
       clear_line
       print display_data[:line2]
+
+      # Update error details if present (for failed pipelines)
+      if display_data[:error_lines]
+        display_data[:error_lines].each_with_index do |error_line, index|
+          move_cursor_to(row + 2 + index, 1)
+          clear_line
+          print error_line
+        end
+
+        # Clear any remaining error lines from previous display
+        (display_data[:error_lines].size..2).each do |index|
+          move_cursor_to(row + 2 + index, 1)
+          clear_line
+        end
+      else
+        # Clear any previous error lines if pipeline is no longer failed
+        (0..2).each do |index|
+          move_cursor_to(row + 2 + index, 1)
+          clear_line
+        end
+      end
     end
 
     def get_latest_execution(pipeline_name)
@@ -411,14 +442,48 @@ module PipelineWatcher
       failed_action = response.action_execution_details.find { |action| action.status == 'Failed' }
 
       if running_action
-        { step: "#{running_action.stage_name}:#{running_action.action_name}", actual_status: 'InProgress' }
+        { step: "#{running_action.stage_name}:#{running_action.action_name}", actual_status: 'InProgress', error_details: nil }
       elsif failed_action
-        { step: "#{failed_action.stage_name}:#{failed_action.action_name} (FAILED)", actual_status: 'Failed' }
+        error_details = get_failure_details(failed_action)
+        { step: "#{failed_action.stage_name}:#{failed_action.action_name} (FAILED)", actual_status: 'Failed', error_details: error_details }
       else
-        { step: 'Completed', actual_status: 'Succeeded' }
+        { step: 'Completed', actual_status: 'Succeeded', error_details: nil }
       end
     rescue StandardError
-      { step: 'Unknown', actual_status: nil }
+      { step: 'Unknown', actual_status: nil, error_details: nil }
+    end
+
+    def get_failure_details(failed_action)
+      details = []
+
+      # Get error message from action execution
+      if failed_action.error_details && failed_action.error_details.message
+        error_msg = failed_action.error_details.message
+        # Truncate long error messages
+        error_msg = error_msg[0..120] + '...' if error_msg.length > 120
+        details << "Error: #{error_msg}"
+      end
+
+      # Get failure summary if available
+      if failed_action.output && failed_action.output.execution_result
+        result = failed_action.output.execution_result
+        if result.external_execution_summary
+          summary = result.external_execution_summary
+          summary = summary[0..80] + '...' if summary.length > 80
+          details << "Summary: #{summary}"
+        end
+      end
+
+      # If no specific error details, provide generic info
+      if details.empty?
+        details << "Action failed in #{failed_action.stage_name} stage"
+        details << "Check AWS Console for detailed error information"
+      end
+
+      # Limit to 2-3 lines as requested
+      details[0..2]
+    rescue StandardError
+      ["Failed action details unavailable"]
     end
 
     def calculate_timer(started_at, status)

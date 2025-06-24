@@ -80,7 +80,7 @@ class UITestRunner
         { status: 'Succeeded', step: 'Completed', duration: 450 },
         { status: 'InProgress', step: 'Source:GitHubSource', duration: 45 },
         { status: 'InProgress', step: 'Test:RunUnitTests', duration: 90 },
-        { status: 'Failed', step: 'Test:RunUnitTests (FAILED)', duration: 135 },
+        { status: 'Failed', step: 'Test:RunUnitTests (FAILED)', duration: 135, error_details: ['Error: Test suite failed with 3 failures', 'Summary: Integration tests could not connect to database'] },
         { status: 'InProgress', step: 'Source:GitHubSource', duration: 30 }
       ],
       'database-migration' => [
@@ -123,16 +123,16 @@ class UITestRunner
 
     cycle_data = data[@current_cycle % data.length]
 
-    # Return the new format with step and actual_status
+    # Return the new format with step, actual_status, and error_details
     case cycle_data[:status]
     when 'InProgress'
-      { step: cycle_data[:step], actual_status: 'InProgress' }
+      { step: cycle_data[:step], actual_status: 'InProgress', error_details: nil }
     when 'Failed'
-      { step: cycle_data[:step], actual_status: 'Failed' }
+      { step: cycle_data[:step], actual_status: 'Failed', error_details: cycle_data[:error_details] }
     when 'Succeeded'
-      { step: cycle_data[:step], actual_status: 'Succeeded' }
+      { step: cycle_data[:step], actual_status: 'Succeeded', error_details: nil }
     else
-      { step: cycle_data[:step], actual_status: cycle_data[:status] }
+      { step: cycle_data[:step], actual_status: cycle_data[:status], error_details: nil }
     end
   end
 
