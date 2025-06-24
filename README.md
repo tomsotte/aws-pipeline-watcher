@@ -7,8 +7,9 @@ A Ruby CLI tool that provides live updates showing the status of AWS CodePipelin
 - 🔄 **Real-time monitoring** - Updates every 5 seconds with steady, flicker-free UI
 - 🎯 **Accurate status display** - Intelligent status detection that shows true pipeline state
 - 🚨 **Error details for failures** - Failed pipelines show 2-3 lines of actionable error information
+- 🔐 **AWS SSO support** - Automatic token refresh for AWS SSO users
 - 🎨 **Color-coded status** - Easy to identify pipeline states at a glance
-- ⚙️ **Easy configuration** - Simple setup for AWS credentials and pipeline selection
+- ⚙️ **Easy configuration** - Simple setup with standard config paths (XDG compliant)
 - 📊 **Detailed information** - Shows execution status, source revision, timing, and current steps
 - 🔧 **Multiple pipeline support** - Monitor several pipelines simultaneously
 - 🖥️ **Smooth UI** - In-place updates without screen flickering or blinking
@@ -72,9 +73,11 @@ The tool will automatically detect your AWS CLI configuration if available. You'
 
 ### Configuration File
 
-Settings are stored in `~/.pipeline_watcher_config.yml`:
+Settings are stored in the standard configuration directory:
+- **macOS/Linux**: `~/.config/pipeline-watcher/config.yml`
+- **Windows**: `%APPDATA%\pipeline-watcher\config.yml`
 
-**Using AWS CLI (Recommended):**
+**Using AWS CLI with SSO (Recommended):**
 ```yaml
 use_aws_cli: true
 aws_profile: default
@@ -83,7 +86,6 @@ aws_account_id: "123456789012"
 pipeline_names:
   - my-pipeline-1
   - my-pipeline-2
-  - production-pipeline
 ```
 
 **Using Manual Credentials:**
@@ -96,8 +98,15 @@ aws_account_id: "123456789012"
 pipeline_names:
   - my-pipeline-1
   - my-pipeline-2
-  - production-pipeline
 ```
+
+### AWS SSO Token Management
+
+For AWS SSO users, the tool automatically:
+- **Detects expired tokens** during monitoring
+- **Refreshes credentials** using `aws sso login`
+- **Caches tokens** in `~/.config/pipeline-watcher/credentials.yml`
+- **Continues monitoring** seamlessly after refresh
 
 ## Usage
 
@@ -237,6 +246,8 @@ rake clean        # Clean up build artifacts
 3. **Pipeline not found**: Check pipeline name spelling and AWS region
 4. **Connection issues**: Verify internet connection and firewall settings
 5. **AWS CLI not detected**: Install and configure AWS CLI with `aws configure`
+6. **SSO token expired**: Tool will automatically refresh, or manually run `aws sso login`
+7. **Config not found**: Configuration is now stored in `~/.config/pipeline-watcher/`
 
 ### Getting Help
 
@@ -244,6 +255,8 @@ rake clean        # Clean up build artifacts
 - Run `pipeline-watcher help` for command information
 - Verify your AWS credentials and permissions
 - Test AWS CLI with `aws sts get-caller-identity` and `aws configure list`
+- For SSO issues, verify with `aws sso login --profile your-profile`
+- Config location: `~/.config/pipeline-watcher/config.yml`
 
 ## Contributing
 

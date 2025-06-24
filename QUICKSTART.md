@@ -9,7 +9,7 @@ Get up and running with AWS Pipeline Watcher in just a few minutes!
 ### Prerequisites
 - Ruby 2.6.0 or higher
 - AWS account with CodePipeline access
-- AWS CLI configured (recommended) OR AWS credentials (Access Key ID and Secret Access Key)
+- AWS CLI configured with SSO (recommended) OR AWS credentials (Access Key ID and Secret Access Key)
 
 ### Setup Steps
 
@@ -26,8 +26,9 @@ Get up and running with AWS Pipeline Watcher in just a few minutes!
    bundle exec ./bin/pipeline-watcher config
    ```
    
-   **Option A: Use AWS CLI (Recommended)**
+   **Option A: Use AWS CLI with SSO (Recommended)**
    - The tool will auto-detect your AWS CLI configuration
+   - Supports automatic token refresh for AWS SSO users
    - Just confirm to use AWS CLI credentials when prompted
    - Region and Account ID will be detected automatically
    
@@ -78,9 +79,11 @@ Refreshing in 5 seconds... (Press Ctrl+C to exit)
 
 ## 🔧 Configuration File
 
-Settings are stored in `~/.pipeline_watcher_config.yml`:
+Settings are stored in standard configuration directory:
+- **macOS/Linux**: `~/.config/pipeline-watcher/config.yml`
+- **Windows**: `%APPDATA%\pipeline-watcher\config.yml`
 
-**Using AWS CLI (Recommended):**
+**Using AWS CLI with SSO (Recommended):**
 ```yaml
 use_aws_cli: true
 aws_profile: default
@@ -102,6 +105,14 @@ pipeline_names:
   - my-pipeline-1
   - my-pipeline-2
 ```
+
+### 🔐 AWS SSO Token Management
+
+For AWS SSO users, the tool automatically:
+- **Detects expired tokens** during monitoring
+- **Refreshes credentials** using `aws sso login`
+- **Caches tokens** in `~/.config/pipeline-watcher/credentials.yml`
+- **Continues monitoring** seamlessly after refresh
 
 ## 🛡️ Required AWS Permissions
 
@@ -141,7 +152,8 @@ Create an IAM policy with these permissions:
 2. **"Permission denied"** → Check AWS IAM permissions
 3. **"Pipeline not found"** → Verify pipeline names and AWS region
 4. **Ruby version error** → Ensure Ruby 2.6.0 or higher
-5. **AWS CLI not detected** → Install and configure AWS CLI with `aws configure`
+5. **AWS CLI not detected** → Install and configure AWS CLI with `aws configure sso`
+6. **SSO token expired** → Tool will automatically refresh, or manually run `aws sso login`
 
 ### Quick Fixes
 
@@ -153,11 +165,14 @@ bundle install --path vendor/bundle
 bundle exec ./bin/pipeline-watcher config
 
 # Check configuration
-cat ~/.pipeline_watcher_config.yml
+cat ~/.config/pipeline-watcher/config.yml
 
 # Verify AWS CLI setup
 aws sts get-caller-identity
 aws configure list
+
+# For SSO users
+aws sso login --profile your-profile
 ```
 
 ## 🧪 Demo Mode
@@ -182,10 +197,11 @@ bundle exec rake check
 
 ## 💡 Tips
 
-- **Use AWS CLI**: More secure and convenient than hardcoded access keys
+- **Use AWS SSO**: Most secure and convenient authentication method
 - **AWS profiles**: Use different AWS CLI profiles for different accounts/regions
+- **Long-running monitoring**: Tool handles token refresh automatically for SSO users
+- **Config organization**: Configuration files are now in standard `~/.config/` directory
 - **Monitor multiple regions**: Configure separate instances for different AWS regions
-- **Use IAM roles**: For better security, consider using IAM roles instead of access keys
 - **Pipeline naming**: Use descriptive pipeline names for easier identification
 - **Terminal size**: Ensure your terminal is wide enough for the full display
 
@@ -194,6 +210,8 @@ bundle exec rake check
 - Check the [README.md](README.md) for detailed documentation
 - See [INSTALLATION.md](INSTALLATION.md) for comprehensive setup instructions
 - Run `bundle exec ./bin/pipeline-watcher help` for command help
+- Configuration location: `~/.config/pipeline-watcher/config.yml`
+- For SSO issues, verify with `aws sso login --profile your-profile`
 
 ---
 

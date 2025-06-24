@@ -3,15 +3,21 @@
 require 'thor'
 require 'yaml'
 require 'aws-sdk-codepipeline'
+require 'aws-sdk-sts'
+require 'aws-sdk-sso'
+require 'aws-sdk-ssooidc'
 require 'colorize'
 require 'time'
 require 'json'
 require 'open3'
+require 'fileutils'
 require_relative 'pipeline_watcher/version'
 
 module PipelineWatcher
   class CLI < Thor
-    CONFIG_FILE = File.expand_path('~/.pipeline_watcher_config.yml')
+    CONFIG_DIR = File.expand_path('~/.config/pipeline-watcher')
+    CONFIG_FILE = File.join(CONFIG_DIR, 'config.yml')
+    CREDENTIALS_FILE = File.join(CONFIG_DIR, 'credentials.yml')
 
     desc 'config', 'Configure AWS credentials and pipeline settings'
     def config
@@ -81,8 +87,10 @@ module PipelineWatcher
         'pipeline_names' => pipeline_names
       }
 
+      FileUtils.mkdir_p(CONFIG_DIR) unless Dir.exist?(CONFIG_DIR)
       File.write(CONFIG_FILE, config.to_yaml)
       puts "\nConfiguration saved successfully!".colorize(:green)
+      puts "Config location: #{CONFIG_FILE}".colorize(:light_black)
     end
 
     desc 'watch', 'Watch pipeline statuses (default command)'
@@ -104,7 +112,15 @@ module PipelineWatcher
     def load_config
       return {} unless File.exist?(CONFIG_FILE)
 
-      YAML.load_file(CONFIG_FILE) || {}
+      config = YAML.load_file(CONFIG_FILE) || {}
+
+      # Load and merge credentials if they exist
+      if File.exist?(CREDENTIALS_FILE)
+        credentials = YAML.load_file(CREDENTIALS_FILE) || {}
+        config.merge!(credentials)
+      end
+
+      config
     rescue StandardError
       {}
     end
@@ -143,6 +159,17 @@ module PipelineWatcher
           if sts_status.success?
             config[:account_id] = sts_output.strip
             config[:detected] = true
+          elsif sts_stderr.include?('token') || sts_stderr.include?('expire')
+            # Token might be expired, try to refresh
+            puts 'AWS credentials may be expired, attempting refresh...'.colorize(:yellow)
+            if refresh_aws_credentials(config[:profile])
+              # Retry getting account ID
+              sts_output, sts_stderr, sts_status = Open3.capture3('aws sts get-caller-identity --query Account --output text')
+              if sts_status.success?
+                config[:account_id] = sts_output.strip
+                config[:detected] = true
+              end
+            end
           end
         end
       rescue StandardError => e
@@ -151,6 +178,63 @@ module PipelineWatcher
       end
 
       config
+    end
+
+    def refresh_aws_credentials(profile = 'default')
+      begin
+        puts 'Attempting to refresh AWS SSO credentials...'.colorize(:cyan)
+
+        # Try AWS SSO login
+        login_output, login_stderr, login_status = Open3.capture3("aws sso login --profile #{profile}")
+
+        if login_status.success?
+          puts 'AWS SSO credentials refreshed successfully!'.colorize(:green)
+
+          # Save token information if available
+          save_refreshed_credentials(profile)
+          return true
+        else
+          puts "SSO login failed: #{login_stderr}".colorize(:red)
+          return false
+        end
+      rescue StandardError => e
+        puts "Error refreshing credentials: #{e.message}".colorize(:red)
+        return false
+      end
+    end
+
+    def save_refreshed_credentials(profile)
+      begin
+        # Try to get the current credentials and save them
+        aws_dir = File.expand_path('~/.aws')
+        credentials_cache_dir = File.join(aws_dir, 'sso', 'cache')
+
+        if Dir.exist?(credentials_cache_dir)
+          # Find the most recent cache file
+          cache_files = Dir.glob(File.join(credentials_cache_dir, '*.json'))
+          if !cache_files.empty?
+            latest_cache = cache_files.max_by { |f| File.mtime(f) }
+            cache_data = JSON.parse(File.read(latest_cache))
+
+            if cache_data['accessToken'] && cache_data['expiresAt']
+              # Save token info to our credentials file
+              FileUtils.mkdir_p(CONFIG_DIR) unless Dir.exist?(CONFIG_DIR)
+
+              credentials = {
+                'sso_access_token' => cache_data['accessToken'],
+                'sso_expires_at' => cache_data['expiresAt'],
+                'last_refreshed' => Time.now.iso8601
+              }
+
+              File.write(CREDENTIALS_FILE, credentials.to_yaml)
+              puts "Credentials cached locally".colorize(:light_black)
+            end
+          end
+        end
+      rescue StandardError => e
+        # Don't fail if we can't save credentials, just log
+        puts "Note: Could not cache credentials locally (#{e.message})".colorize(:light_black) if ENV['DEBUG']
+      end
     end
   end
 
@@ -171,7 +255,9 @@ module PipelineWatcher
       end
 
       @client = Aws::CodePipeline::Client.new(client_options)
+      @sts_client = Aws::STS::Client.new(client_options)
       @pipeline_states = {}
+      @last_token_check = Time.now
     end
 
     def start_watching
@@ -192,19 +278,38 @@ module PipelineWatcher
       hide_cursor
 
       loop do
-        if @first_run
-          display_initial_screen
-          @first_run = false
-        else
-          update_display_in_place
+        begin
+          # Check if we need to refresh credentials (every 30 minutes)
+          if Time.now - @last_token_check > 1800 && @config['use_aws_cli']
+            check_and_refresh_credentials
+            @last_token_check = Time.now
+          end
+
+          if @first_run
+            display_initial_screen
+            @first_run = false
+          else
+            update_display_in_place
+          end
+          sleep 5
+        rescue Aws::Errors::ServiceError => e
+          if e.message.include?('token') || e.message.include?('expire') || e.message.include?('credential')
+            display_error("AWS credentials may be expired, attempting refresh...")
+            if @config['use_aws_cli'] && refresh_aws_credentials_runtime
+              display_error("Credentials refreshed, retrying...")
+              sleep 2
+            else
+              display_error("AWS Error: #{e.message}")
+              sleep 10
+            end
+          else
+            display_error("AWS Error: #{e.message}")
+            sleep 10
+          end
+        rescue StandardError => e
+          display_error("Error: #{e.message}")
+          sleep 10
         end
-        sleep 5
-      rescue Aws::Errors::ServiceError => e
-        display_error("AWS Error: #{e.message}")
-        sleep 10
-      rescue StandardError => e
-        display_error("Error: #{e.message}")
-        sleep 10
       end
     ensure
       show_cursor
@@ -451,6 +556,45 @@ module PipelineWatcher
       end
     rescue StandardError
       { step: 'Unknown', actual_status: nil, error_details: nil }
+    end
+
+    def check_and_refresh_credentials
+      begin
+        # Quick test to see if credentials are still valid
+        @sts_client.get_caller_identity
+      rescue Aws::Errors::ServiceError => e
+        if e.message.include?('token') || e.message.include?('expire') || e.message.include?('credential')
+          puts 'Credentials expired, refreshing...'.colorize(:yellow)
+          refresh_aws_credentials_runtime
+        end
+      end
+    end
+
+    def refresh_aws_credentials_runtime
+      begin
+        profile = @config['aws_profile'] || 'default'
+
+        # Try AWS SSO login
+        login_output, login_stderr, login_status = Open3.capture3("aws sso login --profile #{profile}")
+
+        if login_status.success?
+          # Recreate the clients with refreshed credentials
+          client_options = { region: @config['aws_region'] || 'us-east-1' }
+          client_options[:profile] = profile
+
+          @client = Aws::CodePipeline::Client.new(client_options)
+          @sts_client = Aws::STS::Client.new(client_options)
+
+          puts 'AWS credentials refreshed successfully!'.colorize(:green)
+          return true
+        else
+          puts "Failed to refresh credentials: #{login_stderr}".colorize(:red)
+          return false
+        end
+      rescue StandardError => e
+        puts "Error during credential refresh: #{e.message}".colorize(:red)
+        return false
+      end
     end
 
     def get_failure_details(failed_action)

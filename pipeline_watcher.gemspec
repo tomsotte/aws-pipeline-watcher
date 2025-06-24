@@ -30,6 +30,9 @@ Gem::Specification.new do |spec|
 
   # Runtime dependencies
   spec.add_dependency 'aws-sdk-codepipeline', '~> 1.0'
+  spec.add_dependency 'aws-sdk-sts', '~> 1.0'
+  spec.add_dependency 'aws-sdk-sso', '~> 1.0'
+  spec.add_dependency 'aws-sdk-ssooidc', '~> 1.0'
   spec.add_dependency 'colorize', '~> 0.8'
   spec.add_dependency 'thor', '~> 1.0'
 

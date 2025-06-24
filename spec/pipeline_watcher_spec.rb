@@ -5,15 +5,19 @@ require 'tempfile'
 require 'fileutils'
 
 RSpec.describe PipelineWatcher::CLI do
-  let(:test_config_file) { File.expand_path('~/.pipeline_watcher_config_test.yml') }
+  let(:test_config_dir) { File.expand_path('~/.config/pipeline-watcher-test') }
+  let(:test_config_file) { File.join(test_config_dir, 'config.yml') }
+  let(:test_credentials_file) { File.join(test_config_dir, 'credentials.yml') }
 
   before do
-    # Stub the CONFIG_FILE constant to use a test file
+    # Stub the config directory and files for testing
+    stub_const('PipelineWatcher::CLI::CONFIG_DIR', test_config_dir)
     stub_const('PipelineWatcher::CLI::CONFIG_FILE', test_config_file)
+    stub_const('PipelineWatcher::CLI::CREDENTIALS_FILE', test_credentials_file)
   end
 
   after do
-    File.delete(test_config_file) if File.exist?(test_config_file)
+    FileUtils.rm_rf(test_config_dir) if Dir.exist?(test_config_dir)
   end
 
   describe '#load_config' do
@@ -29,6 +33,7 @@ RSpec.describe PipelineWatcher::CLI do
       end
 
       before do
+        FileUtils.mkdir_p(test_config_dir)
         File.write(test_config_file, config_data.to_yaml)
       end
 
@@ -51,6 +56,7 @@ RSpec.describe PipelineWatcher::CLI do
 
     context 'when config file is corrupted' do
       before do
+        FileUtils.mkdir_p(test_config_dir)
         File.write(test_config_file, 'invalid: yaml: content: [')
       end
 
@@ -179,6 +185,25 @@ RSpec.describe PipelineWatcher::CLI do
       end
     end
 
+    context 'when AWS CLI credentials are expired' do
+      before do
+        allow(Open3).to receive(:capture3).with('aws configure list').and_return(['', '', double(success?: true)])
+        allow(Open3).to receive(:capture3).with('aws configure get region').and_return(['us-west-2', '', double(success?: true)])
+        allow(Open3).to receive(:capture3).with('aws configure get profile').and_return(['default', '', double(success?: true)])
+        allow(Open3).to receive(:capture3).with('aws sts get-caller-identity --query Account --output text').and_return(['', 'token expired', double(success?: false)])
+
+        # Mock the refresh attempt
+        allow_any_instance_of(PipelineWatcher::CLI).to receive(:refresh_aws_credentials).and_return(true)
+        allow(Open3).to receive(:capture3).with('aws sts get-caller-identity --query Account --output text').and_return(['123456789012', '', double(success?: true)])
+      end
+
+      it 'attempts to refresh credentials and detects configuration' do
+        result = cli.send(:detect_aws_cli_config)
+        expect(result[:detected]).to be true
+        expect(result[:account_id]).to eq('123456789012')
+      end
+    end
+
     context 'when AWS CLI is not available' do
       before do
         allow(Open3).to receive(:capture3).and_raise(StandardError.new('AWS CLI not found'))
@@ -187,6 +212,33 @@ RSpec.describe PipelineWatcher::CLI do
       it 'returns undetected configuration' do
         result = cli.send(:detect_aws_cli_config)
         expect(result[:detected]).to be false
+      end
+    end
+  end
+
+  describe '#refresh_aws_credentials' do
+    let(:cli) { PipelineWatcher::CLI.new }
+
+    context 'when SSO login succeeds' do
+      before do
+        allow(Open3).to receive(:capture3).with('aws sso login --profile default').and_return(['Login successful', '', double(success?: true)])
+        allow_any_instance_of(PipelineWatcher::CLI).to receive(:save_refreshed_credentials).and_return(true)
+      end
+
+      it 'returns true for successful refresh' do
+        result = cli.send(:refresh_aws_credentials, 'default')
+        expect(result).to be true
+      end
+    end
+
+    context 'when SSO login fails' do
+      before do
+        allow(Open3).to receive(:capture3).with('aws sso login --profile default').and_return(['', 'Login failed', double(success?: false)])
+      end
+
+      it 'returns false for failed refresh' do
+        result = cli.send(:refresh_aws_credentials, 'default')
+        expect(result).to be false
       end
     end
   end
@@ -218,6 +270,7 @@ RSpec.describe PipelineWatcher::PipelineStatusWatcher do
     it 'creates a new watcher with manual credentials config' do
       # Mock AWS client creation to avoid actual AWS calls
       allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
+      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
 
       watcher = PipelineWatcher::PipelineStatusWatcher.new(config)
       expect(watcher).to be_instance_of(PipelineWatcher::PipelineStatusWatcher)
@@ -226,6 +279,7 @@ RSpec.describe PipelineWatcher::PipelineStatusWatcher do
     it 'creates a new watcher with AWS CLI config' do
       # Mock AWS client creation to avoid actual AWS calls
       allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
+      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
 
       watcher = PipelineWatcher::PipelineStatusWatcher.new(cli_config)
       expect(watcher).to be_instance_of(PipelineWatcher::PipelineStatusWatcher)
@@ -235,6 +289,7 @@ RSpec.describe PipelineWatcher::PipelineStatusWatcher do
   describe '#format_duration' do
     let(:watcher) do
       allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
+      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
       PipelineWatcher::PipelineStatusWatcher.new(config)
     end
 
@@ -254,6 +309,7 @@ RSpec.describe PipelineWatcher::PipelineStatusWatcher do
   describe '#calculate_timer' do
     let(:watcher) do
       allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
+      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
       PipelineWatcher::PipelineStatusWatcher.new(config)
     end
 
@@ -278,6 +334,7 @@ RSpec.describe PipelineWatcher::PipelineStatusWatcher do
   describe '#get_source_revision' do
     let(:watcher) do
       allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
+      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
       PipelineWatcher::PipelineStatusWatcher.new(config)
     end
 
@@ -319,6 +376,7 @@ RSpec.describe PipelineWatcher::PipelineStatusWatcher do
   describe '#get_current_step_info' do
     let(:watcher) do
       allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
+      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
       PipelineWatcher::PipelineStatusWatcher.new(config)
     end
 
@@ -382,6 +440,7 @@ RSpec.describe PipelineWatcher::PipelineStatusWatcher do
   describe '#get_failure_details' do
     let(:watcher) do
       allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
+      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
       PipelineWatcher::PipelineStatusWatcher.new(config)
     end
 
