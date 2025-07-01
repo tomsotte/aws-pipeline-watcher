@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Ruby 2.7.0 or higher
+- Ruby 3.0.0 or higher
 - AWS account with CodePipeline access
 - AWS credentials (Access Key ID and Secret Access Key)
 

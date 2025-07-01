@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description = 'AWS Pipeline Watcher provides live updates showing the status of AWS CodePipelines with real-time monitoring and configuration management.'
   spec.homepage = 'https://github.com/example/aws-pipeline-watcher'
   spec.license = 'MIT'
-  spec.required_ruby_version = '>= 2.6.0'
+  spec.required_ruby_version = '>= 3.0.0'
 
   spec.metadata['homepage_uri'] = spec.homepage
   spec.metadata['source_code_uri'] = 'https://github.com/example/aws-pipeline-watcher'
@@ -29,6 +29,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
 
   # Runtime dependencies
+  spec.add_dependency 'rexml', '~> 3.0'
   spec.add_dependency 'aws-sdk-codepipeline', '~> 1.0'
   spec.add_dependency 'aws-sdk-sts', '~> 1.0'
   spec.add_dependency 'aws-sdk-sso', '~> 1.0'
@@ -39,5 +40,5 @@ Gem::Specification.new do |spec|
   # Development dependencies
   spec.add_development_dependency 'rake', '~> 13.0'
   spec.add_development_dependency 'rspec', '~> 3.0'
-  spec.add_development_dependency 'rubocop', '~> 1.0'
+  spec.add_development_dependency 'rubocop', '~> 1.60'
 end

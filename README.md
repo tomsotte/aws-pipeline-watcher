@@ -16,7 +16,7 @@ A Ruby CLI tool that provides live updates showing the status of AWS CodePipelin
 
 ## Prerequisites
 
-- Ruby 2.6.0 or higher
+- Ruby 3.0.0 or higher
 - AWS account with CodePipeline access
 - AWS CLI configured (recommended) OR AWS credentials (Access Key ID and Secret Access Key)
 

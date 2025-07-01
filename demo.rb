@@ -181,7 +181,7 @@ puts
 
 puts 'Requirements:'.colorize(:yellow)
 puts '=' * 15
-puts '• Ruby 2.6.0 or higher'
+puts '• Ruby 3.0.0 or higher'
 puts '• AWS account with CodePipeline access'
 puts '• AWS credentials (Access Key ID and Secret)'
 puts '• Pipeline names you want to monitor'

@@ -7,7 +7,7 @@ Get up and running with AWS Pipeline Watcher in just a few minutes!
 ## 🚀 Installation
 
 ### Prerequisites
-- Ruby 2.6.0 or higher
+- Ruby 3.0.0 or higher
 - AWS account with CodePipeline access
 - AWS CLI configured with SSO (recommended) OR AWS credentials (Access Key ID and Secret Access Key)
 
@@ -151,7 +151,7 @@ Create an IAM policy with these permissions:
 1. **"Configuration missing"** → Run `bundle exec ./bin/pipeline-watcher config`
 2. **"Permission denied"** → Check AWS IAM permissions
 3. **"Pipeline not found"** → Verify pipeline names and AWS region
-4. **Ruby version error** → Ensure Ruby 2.6.0 or higher
+4. **Ruby version error** → Ensure Ruby 3.0.0 or higher
 5. **AWS CLI not detected** → Install and configure AWS CLI with `aws configure sso`
 6. **SSO token expired** → Tool will automatically refresh, or manually run `aws sso login`
 
