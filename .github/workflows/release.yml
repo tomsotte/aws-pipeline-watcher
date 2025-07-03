@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## AWS Pipeline Watcher ${{ steps.get_version.outputs.VERSION }}
+
+            ### Installation
+
+            #### Homebrew
+            ```bash
+            brew install https://raw.githubusercontent.com/${{ github.repository }}/main/Formula/aws-pipeline-watcher.rb
+            ```
+
+            #### Manual Installation
+            ```bash
+            curl -L https://github.com/${{ github.repository }}/archive/${{ steps.get_version.outputs.TAG_NAME }}.tar.gz | tar -xz
+            cd aws-pipeline-watcher-${{ steps.get_version.outputs.VERSION }}
+            bundle install
+            chmod +x bin/aws-pipeline-watcher
+            ```
+
+            ### SHA256 Hash
+            ```
+            $(curl -sL https://github.com/${{ github.repository }}/archive/${{ steps.get_version.outputs.TAG_NAME }}.tar.gz | sha256sum | cut -d' ' -f1)
+            ```
+          generate_release_notes: true
+          draft: false
+          prerelease: false

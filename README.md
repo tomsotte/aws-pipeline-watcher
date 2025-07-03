@@ -25,7 +25,22 @@ A Ruby CLI tool that provides live updates showing the status of AWS CodePipelin
 
 ## Installation
 
-### Quick Start
+### 🍺 Homebrew (Recommended)
+
+```bash
+# Add the tap
+brew tap your-username/aws-pipeline-watcher
+
+# Install the tool
+brew install aws-pipeline-watcher
+```
+
+Or install directly:
+```bash
+brew install https://raw.githubusercontent.com/your-username/aws-pipeline-watcher/main/Formula/aws-pipeline-watcher.rb
+```
+
+### 📦 Manual Installation
 
 1. Clone this repository:
    ```bash
@@ -43,12 +58,10 @@ A Ruby CLI tool that provides live updates showing the status of AWS CodePipelin
    chmod +x bin/aws-pipeline-watcher
    ```
 
-### System-wide Installation
-
-To install as a system command:
-```bash
-sudo ln -s $(pwd)/bin/aws-pipeline-watcher /usr/local/bin/aws-pipeline-watcher
-```
+4. Create system-wide link:
+   ```bash
+   sudo ln -s $(pwd)/bin/aws-pipeline-watcher /usr/local/bin/aws-pipeline-watcher
+   ```
 
 ## Configuration
 
