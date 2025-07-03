@@ -1,5 +1,7 @@
 # AWS Pipeline Watcher
 
+> Disclaimer: this project was made entirely with GitHub Copilot agent. No other human developer has been exploited.
+
 A Ruby CLI tool that provides live updates showing the status of AWS CodePipelines and CodeBuild projects with real-time monitoring and colorful output.
 
 ## Features
@@ -65,7 +67,7 @@ The tool will automatically detect your AWS CLI configuration if available. You'
 
 **Option B: Manual Credentials**
 - **AWS Access Key ID**: Your AWS access key
-- **AWS Secret Access Key**: Your AWS secret key  
+- **AWS Secret Access Key**: Your AWS secret key
 - **AWS Region**: The AWS region where your pipelines are located (default: us-east-1)
 - **AWS Account ID**: Your AWS account ID (12-digit number)
 
@@ -148,7 +150,7 @@ The tool displays pipeline and CodeBuild project information in this format:
 ### Status Colors
 
 - 🟢 **Green**: Succeeded
-- 🔴 **Red**: Failed  
+- 🔴 **Red**: Failed
 - 🟡 **Yellow**: InProgress
 - 🟠 **Light Red**: Stopped
 - ⚪ **White**: Other statuses
@@ -228,7 +230,7 @@ Your AWS user needs these IAM permissions:
             "Effect": "Allow",
             "Action": [
                 "codepipeline:ListPipelines",
-                "codepipeline:ListPipelineExecutions", 
+                "codepipeline:ListPipelineExecutions",
                 "codepipeline:ListActionExecutions",
                 "codepipeline:GetPipeline",
                 "codebuild:ListProjects",
@@ -260,7 +262,7 @@ bundle exec rubocop
 ```bash
 rake install      # Install dependencies
 rake test         # Run tests
-rake lint         # Run RuboCop linting  
+rake lint         # Run RuboCop linting
 rake check        # Run all checks (tests + linting)
 rake install_gem  # Build and install gem locally
 rake clean        # Clean up build artifacts
