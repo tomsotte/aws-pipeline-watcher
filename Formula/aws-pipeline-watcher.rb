@@ -1,8 +1,8 @@
 class AwsPipelineWatcher < Formula
   desc "Ruby CLI tool for monitoring AWS CodePipeline and CodeBuild statuses"
   homepage "https://github.com/tomsotte/aws-pipeline-watcher"
-  url "https://github.com/tomsotte/aws-pipeline-watcher/archive/v1.0.0.tar.gz"
-  sha256 "4abcc8c56c85d703890a51d2ce6ccea1372a30c10c5ec63da4af6a68736f7135"
+  url "https://github.com/tomsotte/aws-pipeline-watcher/archive/v1.0.1.tar.gz"
+  sha256 "2bb12f9de054b0be360b4ad23e0a01b6740c4212457c0d4af66c16dc3227824f"
   license "MIT"
 
   depends_on "ruby"
