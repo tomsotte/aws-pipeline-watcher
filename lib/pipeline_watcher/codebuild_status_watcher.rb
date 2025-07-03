@@ -163,7 +163,6 @@ module PipelineWatcher
           latest_build = builds.first
           status = latest_build.build_status
           started_at = latest_build.start_time
-          source_revision = get_source_revision(latest_build)
 
           # Get current phase info
           phase_info = get_current_phase_info(latest_build)
@@ -171,7 +170,7 @@ module PipelineWatcher
           # Calculate timer
           timer = calculate_timer(started_at, status, latest_build.end_time)
 
-          new_display = format_build_display(project_name, status, source_revision, started_at, phase_info[:phase], timer, phase_info[:error_details])
+          new_display = format_build_display(project_name, status, timer, phase_info[:error_details])
         else
           new_display = format_no_builds_display(project_name)
         end
@@ -192,7 +191,7 @@ module PipelineWatcher
       end
     end
 
-    def format_build_display(name, status, revision, started_at, phase_info, timer, error_details = nil)
+    def format_build_display(name, status, timer, error_details = nil)
       status_color = case status
                      when 'SUCCEEDED' then :green
                      when 'FAILED' then :red
@@ -202,12 +201,10 @@ module PipelineWatcher
                      when 'TIMED_OUT' then :light_red
                      else :white
                      end
-
-      started_str = started_at ? started_at.strftime('%m/%d %H:%M') : 'N/A'
       display_status = status.gsub('_', ' ').downcase.capitalize
 
-      line1 = "• #{name.ljust(25)} | #{display_status.colorize(status_color).ljust(20)} | #{revision.ljust(10)} | #{started_str.ljust(12)}"
-      line2 = "  #{phase_info.ljust(40)} | #{timer}".colorize(:light_black)
+      line1 = "• #{name}"
+      line2 = "  #{display_status.colorize(status_color)} | #{timer.colorize(:light_black)}"
 
       # Add error details for failed builds
       lines = { line1: line1, line2: line2 }
@@ -220,15 +217,15 @@ module PipelineWatcher
     end
 
     def format_no_builds_display(project_name)
-      line1 = "• #{project_name.ljust(25)} | No builds found".colorize(:light_black)
-      line2 = "  N/A".colorize(:light_black)
+      line1 = "• #{project_name}"
+      line2 = "  No builds found".colorize(:light_black)
 
       { line1: line1, line2: line2 }
     end
 
     def format_error_display(project_name, error_message)
-      line1 = "• #{project_name.ljust(25)} | Error: #{error_message}".colorize(:red)
-      line2 = "  Connection issue".colorize(:light_black)
+      line1 = "• #{project_name}"
+      line2 = "  Error: #{error_message}".colorize(:red)
 
       { line1: line1, line2: line2 }
     end

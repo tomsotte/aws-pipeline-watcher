@@ -162,7 +162,6 @@ module PipelineWatcher
         if pipeline_execution
           status = pipeline_execution.status
           started_at = pipeline_execution.start_time
-          source_revision = get_source_revision(pipeline_execution)
 
           # Get current step info and actual status
           step_info = get_current_step_info(pipeline_name, pipeline_execution.pipeline_execution_id)
@@ -178,7 +177,7 @@ module PipelineWatcher
           # Calculate timer
           timer = calculate_timer(started_at, actual_status)
 
-          new_display = format_pipeline_display(pipeline_name, actual_status, source_revision, started_at, step_info[:step], timer, step_info[:error_details])
+          new_display = format_pipeline_display(pipeline_name, actual_status, timer, step_info[:error_details])
         else
           new_display = format_no_execution_display(pipeline_name)
         end
@@ -199,7 +198,7 @@ module PipelineWatcher
       end
     end
 
-    def format_pipeline_display(name, status, revision, started_at, step_info, timer, error_details = nil)
+    def format_pipeline_display(name, status, timer, error_details = nil)
       status_color = case status
                      when 'Succeeded' then :green
                      when 'Failed' then :red
@@ -208,10 +207,8 @@ module PipelineWatcher
                      else :white
                      end
 
-      started_str = started_at ? started_at.strftime('%m/%d %H:%M') : 'N/A'
-
-      line1 = "• #{name.ljust(25)} | #{status.colorize(status_color).ljust(20)} | #{revision.ljust(10)} | #{started_str.ljust(12)}"
-      line2 = "  #{step_info.ljust(40)} | #{timer}".colorize(:light_black)
+      line1 = "• #{name}"
+      line2 = "  #{status.colorize(status_color)} | #{timer.colorize(:light_black)}"
 
       # Add error details for failed pipelines
       lines = { line1: line1, line2: line2 }
@@ -224,15 +221,15 @@ module PipelineWatcher
     end
 
     def format_no_execution_display(pipeline_name)
-      line1 = "• #{pipeline_name.ljust(25)} | No executions found".colorize(:light_black)
-      line2 = "  N/A".colorize(:light_black)
+      line1 = "• #{pipeline_name}"
+      line2 = "  No executions found".colorize(:light_black)
 
       { line1: line1, line2: line2 }
     end
 
     def format_error_display(pipeline_name, error_message)
-      line1 = "• #{pipeline_name.ljust(25)} | Error: #{error_message}".colorize(:red)
-      line2 = "  Connection issue".colorize(:light_black)
+      line1 = "• #{pipeline_name}"
+      line2 = "  Error: #{error_message}".colorize(:red)
 
       { line1: line1, line2: line2 }
     end

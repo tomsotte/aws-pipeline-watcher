@@ -140,8 +140,8 @@ Start monitoring your configured pipelines and CodeBuild projects:
 The tool displays pipeline and CodeBuild project information in this format:
 
 ```
-• item-name               | Status               | revision   | started
-  current-step-or-phase                    | timer
+• item-name
+  Status | timer
 ```
 
 ### Status Colors
@@ -159,18 +159,23 @@ AWS Pipeline/CodeBuild Watcher - Last updated: 2024-01-15 14:30:25
 ================================================================================
 
 CodePipelines:
-• my-web-app-pipeline     | InProgress           | a1b2c3d4   | 01/15 14:25
-  Deploy:DeployToStaging                   | 5m 23s (running)
+• my-web-app-pipeline
+  InProgress | 5m 23s (running)
 
-• api-service-pipeline    | Succeeded            | e5f6g7h8   | 01/15 13:45
-  Completed                                | 12m 34s (completed)
+• api-service-pipeline
+  Succeeded | 12m 34s (completed)
+
+• database-migration-pipeline
+  Failed | 10m 15s (completed)
+    ⚠️  Error: Test suite failed with 3 failures in UserServiceTest
+    ⚠️  Summary: Integration tests could not connect to database
 
 CodeBuild Projects:
-• my-build-project        | In progress          | i9j0k1l2   | 01/15 14:20
-  BUILD (running)                          | 3m 45s (running)
+• my-build-project
+  In progress | 3m 45s (running)
 
-• integration-tests       | Failed               | m3n4o5p6   | 01/15 14:15
-  POST_BUILD (FAILED)                      | 8m 12s (completed)
+• integration-tests
+  Failed | 8m 12s (completed)
     ⚠️  Error: Test suite failed with 3 failures in UserServiceTest
     ⚠️  BUILD: Command did not complete successfully
 
@@ -179,11 +184,8 @@ Refreshing in 5 seconds... (Press Ctrl+C to exit)
 
 ### Field Descriptions
 
-- **item-name**: Name of the CodePipeline or CodeBuild project
+- **item-name**: Name of the CodePipeline or CodeBuild project (displayed on first line)
 - **Status**: Accurate execution status with intelligent detection (Succeeded/Succeeded, Failed/Failed, InProgress/In progress, etc.)
-- **revision**: Latest source revision (first 8 characters of commit hash or S3 for S3 sources)
-- **started**: When the last execution/build started (MM/DD HH:MM format)
-- **current-step**: Current stage and action (pipelines) or build phase (CodeBuild) being executed or that failed
 - **timer**: Duration the pipeline/build has been running or since completion
 - **error-details**: For failed pipelines/builds, 2-3 lines of actionable error information (⚠️ icon)
 
