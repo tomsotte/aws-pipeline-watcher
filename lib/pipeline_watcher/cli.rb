@@ -12,7 +12,7 @@ require_relative 'unified_status_watcher'
 
 module PipelineWatcher
   class CLI < Thor
-    CONFIG_DIR = File.expand_path('~/.config/pipeline-watcher')
+    CONFIG_DIR = File.expand_path('~/.config/aws-pipeline-watcher')
     CONFIG_FILE = File.join(CONFIG_DIR, 'config.yml')
     CREDENTIALS_FILE = File.join(CONFIG_DIR, 'credentials.yml')
 

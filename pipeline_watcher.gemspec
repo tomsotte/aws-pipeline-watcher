@@ -6,7 +6,7 @@ Gem::Specification.new do |spec|
   spec.name = 'pipeline_watcher'
   spec.version = PipelineWatcher::VERSION
   spec.authors = ['Pipeline Watcher']
-  spec.email = ['pipeline-watcher@example.com']
+  spec.email = ['aws-pipeline-watcher@example.com']
 
   spec.summary = 'A Ruby CLI tool for monitoring AWS CodePipeline statuses'
   spec.description = 'AWS Pipeline Watcher provides live updates showing the status of AWS CodePipelines with real-time monitoring and configuration management.'

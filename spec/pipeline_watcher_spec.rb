@@ -5,7 +5,7 @@ require 'tempfile'
 require 'fileutils'
 
 RSpec.describe PipelineWatcher::CLI do
-  let(:test_config_dir) { File.expand_path('~/.config/pipeline-watcher-test') }
+  let(:test_config_dir) { File.expand_path('~/.config/aws-pipeline-watcher-test') }
   let(:test_config_file) { File.join(test_config_dir, 'config.yml') }
   let(:test_credentials_file) { File.join(test_config_dir, 'credentials.yml') }
 

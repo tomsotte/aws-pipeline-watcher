@@ -1,5 +1,5 @@
 # Example configuration file for AWS Pipeline Watcher
-# This file will be automatically created at ~/.config/pipeline-watcher/config.yml
+# This file will be automatically created at ~/.config/aws-pipeline-watcher/config.yml
 
 # Option 1: Use AWS CLI credentials with SSO (recommended)
 # The tool will automatically detect your AWS CLI configuration and refresh tokens

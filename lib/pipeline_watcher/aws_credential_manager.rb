@@ -12,7 +12,7 @@ require 'colorize'
 
 module PipelineWatcher
   class AwsCredentialManager
-    CONFIG_DIR = File.expand_path('~/.config/pipeline-watcher')
+    CONFIG_DIR = File.expand_path('~/.config/aws-pipeline-watcher')
     CREDENTIALS_FILE = File.join(CONFIG_DIR, 'credentials.yml')
 
     def initialize(config)

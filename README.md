@@ -40,14 +40,14 @@ A Ruby CLI tool that provides live updates showing the status of AWS CodePipelin
 
 3. Make the executable runnable:
    ```bash
-   chmod +x bin/pipeline-watcher
+   chmod +x bin/aws-pipeline-watcher
    ```
 
 ### System-wide Installation
 
 To install as a system command:
 ```bash
-sudo ln -s $(pwd)/bin/pipeline-watcher /usr/local/bin/pipeline-watcher
+sudo ln -s $(pwd)/bin/aws-pipeline-watcher /usr/local/bin/aws-pipeline-watcher
 ```
 
 ## Configuration
@@ -55,7 +55,7 @@ sudo ln -s $(pwd)/bin/pipeline-watcher /usr/local/bin/pipeline-watcher
 Run the configuration command to set up your AWS credentials and specify pipelines to monitor:
 
 ```bash
-./bin/pipeline-watcher config
+./bin/aws-pipeline-watcher config
 ```
 
 The tool will automatically detect your AWS CLI configuration if available. You'll be prompted for:
@@ -78,8 +78,8 @@ The tool will automatically detect your AWS CLI configuration if available. You'
 ### Configuration File
 
 Settings are stored in the standard configuration directory:
-- **macOS/Linux**: `~/.config/pipeline-watcher/config.yml`
-- **Windows**: `%APPDATA%\pipeline-watcher\config.yml`
+- **macOS/Linux**: `~/.config/aws-pipeline-watcher/config.yml`
+- **Windows**: `%APPDATA%\aws-pipeline-watcher\config.yml`
 
 **Using AWS CLI with SSO (Recommended):**
 ```yaml
@@ -115,7 +115,7 @@ codebuild_project_names:
 For AWS SSO users, the tool automatically:
 - **Detects expired tokens** during monitoring
 - **Refreshes credentials** using `aws sso login`
-- **Caches tokens** in `~/.config/pipeline-watcher/credentials.yml`
+- **Caches tokens** in `~/.config/aws-pipeline-watcher/credentials.yml`
 - **Continues monitoring** seamlessly after refresh
 
 ## Usage
@@ -125,17 +125,17 @@ For AWS SSO users, the tool automatically:
 Start monitoring your configured pipelines and CodeBuild projects:
 
 ```bash
-./bin/pipeline-watcher
+./bin/aws-pipeline-watcher
 ```
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| `pipeline-watcher` | Start monitoring (default command) |
-| `pipeline-watcher watch` | Start monitoring (explicit) |
-| `pipeline-watcher config` | Configure AWS credentials, pipelines, and CodeBuild projects |
-| `pipeline-watcher help` | Show help information |
+| `aws-pipeline-watcher` | Start monitoring (default command) |
+| `aws-pipeline-watcher watch` | Start monitoring (explicit) |
+| `aws-pipeline-watcher config` | Configure AWS credentials, pipelines, and CodeBuild projects |
+| `aws-pipeline-watcher help` | Show help information |
 
 ## Display Format
 
@@ -279,16 +279,16 @@ rake clean        # Clean up build artifacts
 4. **Connection issues**: Verify internet connection and firewall settings
 5. **AWS CLI not detected**: Install and configure AWS CLI with `aws configure`
 6. **SSO token expired**: Tool will automatically refresh, or manually run `aws sso login`
-7. **Config not found**: Configuration is now stored in `~/.config/pipeline-watcher/`
+7. **Config not found**: Configuration is now stored in `~/.config/aws-pipeline-watcher/`
 
 ### Getting Help
 
 - Check the [INSTALLATION.md](INSTALLATION.md) for detailed setup instructions
-- Run `pipeline-watcher help` for command information
+- Run `aws-pipeline-watcher help` for command information
 - Verify your AWS credentials and permissions
 - Test AWS CLI with `aws sts get-caller-identity` and `aws configure list`
 - For SSO issues, verify with `aws sso login --profile your-profile`
-- Config location: `~/.config/pipeline-watcher/config.yml`
+- Config location: `~/.config/aws-pipeline-watcher/config.yml`
 
 ## Contributing
 
