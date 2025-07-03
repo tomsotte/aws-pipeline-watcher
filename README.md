@@ -142,6 +142,7 @@ The tool displays pipeline and CodeBuild project information in this format:
 ```
 • item-name
   Status | timer
+  commit-hash: commit-message
 ```
 
 ### Status Colors
@@ -161,21 +162,26 @@ AWS Pipeline/CodeBuild Watcher - Last updated: 2024-01-15 14:30:25
 CodePipelines:
 • my-web-app-pipeline
   InProgress | 5m 23s (running)
+  a1b2c3d4: Add user authentication feature
 
 • api-service-pipeline
   Succeeded | 12m 34s (completed)
+  e5f6g7h8: Fix API endpoint validation
 
 • database-migration-pipeline
   Failed | 10m 15s (completed)
+  i9j0k1l2: Update database schema for user profiles
     ⚠️  Error: Test suite failed with 3 failures in UserServiceTest
     ⚠️  Summary: Integration tests could not connect to database
 
 CodeBuild Projects:
 • my-build-project
   In progress | 3m 45s (running)
+  m3n4o5p6
 
 • integration-tests
   Failed | 8m 12s (completed)
+  q7r8s9t0
     ⚠️  Error: Test suite failed with 3 failures in UserServiceTest
     ⚠️  BUILD: Command did not complete successfully
 
@@ -187,6 +193,8 @@ Refreshing in 5 seconds... (Press Ctrl+C to exit)
 - **item-name**: Name of the CodePipeline or CodeBuild project (displayed on first line)
 - **Status**: Accurate execution status with intelligent detection (Succeeded/Succeeded, Failed/Failed, InProgress/In progress, etc.)
 - **timer**: Duration the pipeline/build has been running or since completion
+- **commit-hash**: Short Git commit hash (first 8 characters)
+- **commit-message**: Clean commit message extracted from source revision (automatically parses GitHub/CodeCommit JSON format)
 - **error-details**: For failed pipelines/builds, 2-3 lines of actionable error information (⚠️ icon)
 
 ### Status Accuracy
@@ -196,6 +204,7 @@ The tool uses intelligent status detection to provide accurate pipeline and buil
 - **Consistent display**: Status always matches the step/phase information shown
 - **Real-time accuracy**: Shows the true current state of your pipelines and builds
 - **Multi-service support**: Unified display for both CodePipeline and CodeBuild with consistent formatting
+- **Smart commit parsing**: Automatically extracts clean commit messages from JSON metadata provided by GitHub and CodeCommit
 
 ### Error Details for Failed Pipelines
 

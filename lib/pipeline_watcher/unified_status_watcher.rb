@@ -5,6 +5,7 @@ require 'aws-sdk-codebuild'
 require 'aws-sdk-sts'
 require 'colorize'
 require 'time'
+require 'json'
 require 'open3'
 require_relative 'aws_credential_manager'
 
@@ -126,15 +127,16 @@ module PipelineWatcher
         current_row += 1
 
         @pipeline_names.each_with_index do |pipeline_name, index|
-          @item_data[pipeline_name] = { row: current_row + (index * 6), last_display: '', type: :pipeline }
+          @item_data[pipeline_name] = { row: current_row + (index * 7), last_display: '', type: :pipeline }
           puts # Pipeline status line
           puts # Pipeline details line
+          puts # Pipeline commit line
           puts # Error line 1 (if needed)
           puts # Error line 2 (if needed)
           puts # Error line 3 (if needed)
           puts # Empty spacing line
         end
-        current_row += @pipeline_names.size * 6 + 1
+        current_row += @pipeline_names.size * 7 + 1
       end
 
       if @codebuild_names.any?
@@ -142,9 +144,10 @@ module PipelineWatcher
         current_row += 1
 
         @codebuild_names.each_with_index do |project_name, index|
-          @item_data[project_name] = { row: current_row + (index * 6), last_display: '', type: :codebuild }
+          @item_data[project_name] = { row: current_row + (index * 7), last_display: '', type: :codebuild }
           puts # Build status line
           puts # Build details line
+          puts # Build commit line
           puts # Error line 1 (if needed)
           puts # Error line 2 (if needed)
           puts # Error line 3 (if needed)
@@ -192,7 +195,7 @@ module PipelineWatcher
     def display_error(message)
       # Display error at the bottom without disrupting the main display
       save_cursor_position
-      move_cursor_to(@total_items * 6 + 8, 1)
+      move_cursor_to(@total_items * 7 + 8, 1)
       clear_line
       print message.colorize(:red)
       restore_cursor_position
@@ -205,6 +208,7 @@ module PipelineWatcher
         if pipeline_execution
           status = pipeline_execution.status
           started_at = pipeline_execution.start_time
+          source_revision = get_pipeline_source_revision(pipeline_execution)
 
           # Get current step info and actual status
           step_info = get_pipeline_current_step_info(pipeline_name, pipeline_execution.pipeline_execution_id)
@@ -220,7 +224,7 @@ module PipelineWatcher
           # Calculate timer
           timer = calculate_timer(started_at, actual_status)
 
-          new_display = format_pipeline_display(pipeline_name, actual_status, timer, step_info[:error_details])
+          new_display = format_pipeline_display(pipeline_name, actual_status, timer, source_revision, step_info[:error_details])
         else
           new_display = format_no_execution_display(pipeline_name)
         end
@@ -249,6 +253,7 @@ module PipelineWatcher
           latest_build = builds.first
           status = latest_build.build_status
           started_at = latest_build.start_time
+          source_revision = get_build_source_revision(latest_build)
 
           # Get current phase info
           phase_info = get_current_phase_info(latest_build)
@@ -256,7 +261,7 @@ module PipelineWatcher
           # Calculate timer
           timer = calculate_build_timer(started_at, status, latest_build.end_time)
 
-          new_display = format_build_display(project_name, status, timer, phase_info[:error_details])
+          new_display = format_build_display(project_name, status, timer, source_revision, phase_info[:error_details])
         else
           new_display = format_no_builds_display(project_name)
         end
@@ -277,7 +282,7 @@ module PipelineWatcher
       end
     end
 
-    def format_pipeline_display(name, status, timer, error_details = nil)
+    def format_pipeline_display(name, status, timer, source_revision, error_details = nil)
       status_color = case status
                      when 'Succeeded' then :green
                      when 'Failed' then :red
@@ -287,9 +292,10 @@ module PipelineWatcher
                      end
       line1 = "• #{name}"
       line2 = "  #{status.colorize(status_color)} | #{timer.colorize(:light_black)}"
+      line3 = "  #{source_revision}".colorize(:light_black)
 
       # Add error details for failed pipelines
-      lines = { line1: line1, line2: line2 }
+      lines = { line1: line1, line2: line2, line3: line3 }
 
       if status == 'Failed' && error_details && !error_details.empty?
         lines[:error_lines] = error_details.map { |detail| "    ⚠️  #{detail}".colorize(:red) }
@@ -298,7 +304,7 @@ module PipelineWatcher
       lines
     end
 
-    def format_build_display(name, status, timer, error_details = nil)
+    def format_build_display(name, status, timer, source_revision, error_details = nil)
       status_color = case status
                      when 'SUCCEEDED' then :green
                      when 'FAILED' then :red
@@ -312,9 +318,10 @@ module PipelineWatcher
 
       line1 = "• #{name}"
       line2 = "  #{display_status.colorize(status_color)} | #{timer.colorize(:light_black)}"
+      line3 = "  #{source_revision}".colorize(:light_black)
 
       # Add error details for failed builds
-      lines = { line1: line1, line2: line2 }
+      lines = { line1: line1, line2: line2, line3: line3 }
 
       if (status == 'FAILED' || status == 'FAULT' || status == 'TIMED_OUT') && error_details && !error_details.empty?
         lines[:error_lines] = error_details.map { |detail| "    ⚠️  #{detail}".colorize(:red) }
@@ -326,22 +333,25 @@ module PipelineWatcher
     def format_no_execution_display(item_name)
       line1 = "• #{item_name}"
       line2 = "  No executions found".colorize(:light_black)
+      line3 = "  ".colorize(:light_black)
 
-      { line1: line1, line2: line2 }
+      { line1: line1, line2: line2, line3: line3 }
     end
 
     def format_no_builds_display(item_name)
       line1 = "• #{item_name}"
       line2 = "  No builds found".colorize(:light_black)
+      line3 = "  ".colorize(:light_black)
 
-      { line1: line1, line2: line2 }
+      { line1: line1, line2: line2, line3: line3 }
     end
 
     def format_error_display(item_name, error_message)
       line1 = "• #{item_name}"
       line2 = "  Error: #{error_message}".colorize(:red)
+      line3 = "  ".colorize(:light_black)
 
-      { line1: line1, line2: line2 }
+      { line1: line1, line2: line2, line3: line3 }
     end
 
     def update_item_lines(item_name, display_data)
@@ -358,23 +368,28 @@ module PipelineWatcher
       clear_line
       print display_data[:line2]
 
+      # Update third line (commit info)
+      move_cursor_to(row + 2, 1)
+      clear_line
+      print display_data[:line3]
+
       # Update error details if present
       if display_data[:error_lines]
         display_data[:error_lines].each_with_index do |error_line, index|
-          move_cursor_to(row + 2 + index, 1)
+          move_cursor_to(row + 3 + index, 1)
           clear_line
           print error_line
         end
 
         # Clear any remaining error lines from previous display
         (display_data[:error_lines].size..2).each do |index|
-          move_cursor_to(row + 2 + index, 1)
+          move_cursor_to(row + 3 + index, 1)
           clear_line
         end
       else
         # Clear any previous error lines
         (0..2).each do |index|
-          move_cursor_to(row + 2 + index, 1)
+          move_cursor_to(row + 3 + index, 1)
           clear_line
         end
       end
@@ -392,8 +407,34 @@ module PipelineWatcher
 
     def get_pipeline_source_revision(execution)
       if execution.source_revisions && !execution.source_revisions.empty?
-        revision = execution.source_revisions.first.revision_id
-        revision.length > 8 ? revision[0..7] : revision
+        source_revision = execution.source_revisions.first
+        revision_id = source_revision.revision_id
+
+        # Try to get commit message if available
+        if source_revision.revision_summary && !source_revision.revision_summary.empty?
+          commit_message = source_revision.revision_summary
+
+          # Try to parse JSON if it looks like JSON
+          if commit_message.start_with?('{') && commit_message.include?('CommitMessage')
+            begin
+              parsed = JSON.parse(commit_message)
+              commit_message = parsed['CommitMessage'] if parsed['CommitMessage']
+            rescue JSON::ParserError
+              # If parsing fails, use the original string
+            end
+          end
+
+          # Truncate long commit messages for display
+          if commit_message.length > 80
+            commit_message = commit_message[0..77] + '...'
+          end
+          short_hash = revision_id.length > 8 ? revision_id[0..7] : revision_id
+          "#{short_hash}: #{commit_message}"
+        else
+          # Just show the short hash if no commit message
+          short_hash = revision_id.length > 8 ? revision_id[0..7] : revision_id
+          "#{short_hash}"
+        end
       else
         'N/A'
       end
@@ -480,10 +521,10 @@ module PipelineWatcher
         # Handle different source version formats
         if revision.start_with?('arn:aws:s3:')
           # S3 source
-          'S3'
+          'S3 source'
         elsif revision.length > 8
           # Git commit hash
-          revision[0..7]
+          "#{revision[0..7]}"
         else
           revision
         end
