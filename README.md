@@ -197,7 +197,7 @@ Refreshing in 5 seconds... (Press Ctrl+C to exit)
 - **timer**: Duration the pipeline/build has been running or since completion
 - **commit-hash**: Short Git commit hash (first 8 characters)
 - **commit-message**: Clean commit message extracted from source revision (automatically parses GitHub/CodeCommit JSON format)
-- **error-details**: For failed pipelines/builds, 2-3 lines of actionable error information (⚠️ icon)
+- **error-details**: For failed pipelines/builds, up to 2 lines of actionable error information (⚠️ icon)
 
 ### Status Accuracy
 
@@ -214,6 +214,7 @@ When pipelines or builds fail, the tool automatically displays helpful debugging
 - **Error messages**: Direct error messages from AWS CodePipeline actions and CodeBuild phases
 - **Failure summaries**: Additional context from build/test/deploy tools and build logs
 - **Smart truncation**: Long messages are shortened for terminal readability
+- **Compact display**: Shows up to 2 lines of error details to maintain clean interface
 - **Visual indicators**: Red warning icons (⚠️) highlight error details
 - **No configuration needed**: Error details appear automatically for failed pipelines and builds
 - **CloudWatch integration**: CodeBuild failures show relevant log group information when available

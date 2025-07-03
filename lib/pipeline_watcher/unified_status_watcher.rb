@@ -127,16 +127,15 @@ module PipelineWatcher
         current_row += 1
 
         @pipeline_names.each_with_index do |pipeline_name, index|
-          @item_data[pipeline_name] = { row: current_row + (index * 7), last_display: '', type: :pipeline }
+          @item_data[pipeline_name] = { row: current_row + (index * 6), last_display: '', type: :pipeline }
           puts # Pipeline status line
           puts # Pipeline details line
           puts # Pipeline commit line
           puts # Error line 1 (if needed)
           puts # Error line 2 (if needed)
-          puts # Error line 3 (if needed)
           puts # Empty spacing line
         end
-        current_row += @pipeline_names.size * 7 + 1
+        current_row += @pipeline_names.size * 6 + 1
       end
 
       if @codebuild_names.any?
@@ -144,13 +143,12 @@ module PipelineWatcher
         current_row += 1
 
         @codebuild_names.each_with_index do |project_name, index|
-          @item_data[project_name] = { row: current_row + (index * 7), last_display: '', type: :codebuild }
+          @item_data[project_name] = { row: current_row + (index * 6), last_display: '', type: :codebuild }
           puts # Build status line
           puts # Build details line
           puts # Build commit line
           puts # Error line 1 (if needed)
           puts # Error line 2 (if needed)
-          puts # Error line 3 (if needed)
           puts # Empty spacing line
         end
       end
@@ -195,7 +193,7 @@ module PipelineWatcher
     def display_error(message)
       # Display error at the bottom without disrupting the main display
       save_cursor_position
-      move_cursor_to(@total_items * 7 + 8, 1)
+      move_cursor_to(@total_items * 6 + 8, 1)
       clear_line
       print message.colorize(:red)
       restore_cursor_position
@@ -298,7 +296,7 @@ module PipelineWatcher
       lines = { line1: line1, line2: line2, line3: line3 }
 
       if status == 'Failed' && error_details && !error_details.empty?
-        lines[:error_lines] = error_details.map { |detail| "    ⚠️  #{detail}".colorize(:red) }
+        lines[:error_lines] = error_details[0..1].map { |detail| "    ⚠️  #{detail}".colorize(:red) }
       end
 
       lines
@@ -324,7 +322,7 @@ module PipelineWatcher
       lines = { line1: line1, line2: line2, line3: line3 }
 
       if (status == 'FAILED' || status == 'FAULT' || status == 'TIMED_OUT') && error_details && !error_details.empty?
-        lines[:error_lines] = error_details.map { |detail| "    ⚠️  #{detail}".colorize(:red) }
+        lines[:error_lines] = error_details[0..1].map { |detail| "    ⚠️  #{detail}".colorize(:red) }
       end
 
       lines
@@ -382,13 +380,13 @@ module PipelineWatcher
         end
 
         # Clear any remaining error lines from previous display
-        (display_data[:error_lines].size..2).each do |index|
+        (display_data[:error_lines].size..1).each do |index|
           move_cursor_to(row + 3 + index, 1)
           clear_line
         end
       else
         # Clear any previous error lines
-        (0..2).each do |index|
+        (0..1).each do |index|
           move_cursor_to(row + 3 + index, 1)
           clear_line
         end
@@ -491,8 +489,8 @@ module PipelineWatcher
         details << "Check AWS Console for detailed error information"
       end
 
-      # Limit to 2-3 lines
-      details[0..2]
+      # Limit to 2 lines
+      details[0..1]
     rescue StandardError
       ["Failed action details unavailable"]
     end
@@ -603,8 +601,8 @@ module PipelineWatcher
         end
       end
 
-      # Limit to 2-3 lines
-      details[0..2]
+      # Limit to 2 lines
+      details[0..1]
     rescue StandardError
       ["Build failure details unavailable"]
     end

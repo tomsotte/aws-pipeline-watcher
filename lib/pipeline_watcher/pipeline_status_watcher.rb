@@ -108,15 +108,14 @@ module PipelineWatcher
       puts '=' * 80
       puts
 
-      # Reserve space for each pipeline (7 lines per pipeline: status, details, commit, error1, error2, error3, spacing)
+      # Reserve space for each pipeline (6 lines per pipeline: status, details, commit, error1, error2, spacing)
       @config['pipeline_names'].each_with_index do |pipeline_name, index|
-        @pipeline_data[pipeline_name] = { row: 4 + (index * 7), last_display: '' }
+        @pipeline_data[pipeline_name] = { row: 4 + (index * 6), last_display: '' }
         puts # Pipeline status line
         puts # Pipeline details line
         puts # Pipeline commit line
         puts # Error line 1 (if needed)
         puts # Error line 2 (if needed)
-        puts # Error line 3 (if needed)
         puts # Empty spacing line
       end
 
@@ -151,7 +150,7 @@ module PipelineWatcher
     def display_error(message)
       # Display error at the bottom without disrupting the main display
       save_cursor_position
-      move_cursor_to(@config['pipeline_names'].size * 7 + 6, 1)
+      move_cursor_to(@config['pipeline_names'].size * 6 + 6, 1)
       clear_line
       print message.colorize(:red)
       restore_cursor_position
@@ -218,7 +217,7 @@ module PipelineWatcher
       lines = { line1: line1, line2: line2, line3: line3 }
 
       if status == 'Failed' && error_details && !error_details.empty?
-        lines[:error_lines] = error_details.map { |detail| "    ⚠️  #{detail}".colorize(:red) }
+        lines[:error_lines] = error_details[0..1].map { |detail| "    ⚠️  #{detail}".colorize(:red) }
       end
 
       lines
@@ -268,13 +267,13 @@ module PipelineWatcher
         end
 
         # Clear any remaining error lines from previous display
-        (display_data[:error_lines].size..2).each do |index|
+        (display_data[:error_lines].size..1).each do |index|
           move_cursor_to(row + 3 + index, 1)
           clear_line
         end
       else
         # Clear any previous error lines if pipeline is no longer failed
-        (0..2).each do |index|
+        (0..1).each do |index|
           move_cursor_to(row + 3 + index, 1)
           clear_line
         end
