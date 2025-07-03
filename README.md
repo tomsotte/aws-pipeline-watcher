@@ -1,23 +1,24 @@
 # AWS Pipeline Watcher
 
-A Ruby CLI tool that provides live updates showing the status of AWS CodePipelines with real-time monitoring and colorful output.
+A Ruby CLI tool that provides live updates showing the status of AWS CodePipelines and CodeBuild projects with real-time monitoring and colorful output.
 
 ## Features
 
 - 🔄 **Real-time monitoring** - Updates every 5 seconds with steady, flicker-free UI
-- 🎯 **Accurate status display** - Intelligent status detection that shows true pipeline state
-- 🚨 **Error details for failures** - Failed pipelines show 2-3 lines of actionable error information
+- 🎯 **Accurate status display** - Intelligent status detection that shows true pipeline and build state
+- 🚨 **Error details for failures** - Failed pipelines and builds show 2-3 lines of actionable error information
 - 🔐 **AWS SSO support** - Automatic token refresh for AWS SSO users
-- 🎨 **Color-coded status** - Easy to identify pipeline states at a glance
+- 🎨 **Color-coded status** - Easy to identify pipeline and build states at a glance
 - ⚙️ **Easy configuration** - Simple setup with standard config paths (XDG compliant)
-- 📊 **Detailed information** - Shows execution status, source revision, timing, and current steps
-- 🔧 **Multiple pipeline support** - Monitor several pipelines simultaneously
+- 📊 **Detailed information** - Shows execution status, source revision, timing, and current steps/phases
+- 🔧 **Multiple service support** - Monitor several pipelines and CodeBuild projects simultaneously
 - 🖥️ **Smooth UI** - In-place updates without screen flickering or blinking
+- 🏗️ **CodeBuild integration** - Full support for AWS CodeBuild projects alongside CodePipelines
 
 ## Prerequisites
 
 - Ruby 3.0.0 or higher
-- AWS account with CodePipeline access
+- AWS account with CodePipeline and/or CodeBuild access
 - AWS CLI configured (recommended) OR AWS credentials (Access Key ID and Secret Access Key)
 
 ## Installation
@@ -70,6 +71,7 @@ The tool will automatically detect your AWS CLI configuration if available. You'
 
 **For both options:**
 - **Pipeline names**: Comma-separated list of pipeline names to monitor
+- **CodeBuild project names**: Comma-separated list of CodeBuild project names to monitor
 
 ### Configuration File
 
@@ -86,6 +88,9 @@ aws_account_id: "123456789012"
 pipeline_names:
   - my-pipeline-1
   - my-pipeline-2
+codebuild_project_names:
+  - my-build-project-1
+  - my-build-project-2
 ```
 
 **Using Manual Credentials:**
@@ -98,6 +103,9 @@ aws_account_id: "123456789012"
 pipeline_names:
   - my-pipeline-1
   - my-pipeline-2
+codebuild_project_names:
+  - my-build-project-1
+  - my-build-project-2
 ```
 
 ### AWS SSO Token Management
@@ -112,7 +120,7 @@ For AWS SSO users, the tool automatically:
 
 ### Monitor Pipelines
 
-Start monitoring your configured pipelines:
+Start monitoring your configured pipelines and CodeBuild projects:
 
 ```bash
 ./bin/pipeline-watcher
@@ -124,16 +132,16 @@ Start monitoring your configured pipelines:
 |---------|-------------|
 | `pipeline-watcher` | Start monitoring (default command) |
 | `pipeline-watcher watch` | Start monitoring (explicit) |
-| `pipeline-watcher config` | Configure AWS credentials and pipelines |
+| `pipeline-watcher config` | Configure AWS credentials, pipelines, and CodeBuild projects |
 | `pipeline-watcher help` | Show help information |
 
 ## Display Format
 
-The tool displays pipeline information in this format:
+The tool displays pipeline and CodeBuild project information in this format:
 
 ```
-• pipeline-name           | Status               | revision   | started
-  current-step                             | timer
+• item-name               | Status               | revision   | started
+  current-step-or-phase                    | timer
 ```
 
 ### Status Colors
@@ -147,48 +155,55 @@ The tool displays pipeline information in this format:
 ### Example Output
 
 ```
-AWS Pipeline Watcher - Last updated: 2024-01-15 14:30:25
+AWS Pipeline/CodeBuild Watcher - Last updated: 2024-01-15 14:30:25
 ================================================================================
 
+CodePipelines:
 • my-web-app-pipeline     | InProgress           | a1b2c3d4   | 01/15 14:25
   Deploy:DeployToStaging                   | 5m 23s (running)
 
 • api-service-pipeline    | Succeeded            | e5f6g7h8   | 01/15 13:45
   Completed                                | 12m 34s (completed)
 
-• database-migration      | Failed               | i9j0k1l2   | 01/15 14:20
-  Test:RunIntegrationTests (FAILED)        | 10m 15s (completed)
+CodeBuild Projects:
+• my-build-project        | In progress          | i9j0k1l2   | 01/15 14:20
+  BUILD (running)                          | 3m 45s (running)
+
+• integration-tests       | Failed               | m3n4o5p6   | 01/15 14:15
+  POST_BUILD (FAILED)                      | 8m 12s (completed)
     ⚠️  Error: Test suite failed with 3 failures in UserServiceTest
-    ⚠️  Summary: Integration tests could not connect to database
+    ⚠️  BUILD: Command did not complete successfully
 
 Refreshing in 5 seconds... (Press Ctrl+C to exit)
 ```
 
 ### Field Descriptions
 
-- **pipeline-name**: Name of the CodePipeline
-- **Status**: Accurate execution status with intelligent detection (Succeeded, Failed, InProgress, etc.)
-- **revision**: Latest source revision (first 8 characters of commit hash)
-- **started**: When the last execution started (MM/DD HH:MM format)
-- **current-step**: Current stage and action being executed or that failed
-- **timer**: Duration the pipeline has been running or since completion
-- **error-details**: For failed pipelines, 2-3 lines of actionable error information (⚠️ icon)
+- **item-name**: Name of the CodePipeline or CodeBuild project
+- **Status**: Accurate execution status with intelligent detection (Succeeded/Succeeded, Failed/Failed, InProgress/In progress, etc.)
+- **revision**: Latest source revision (first 8 characters of commit hash or S3 for S3 sources)
+- **started**: When the last execution/build started (MM/DD HH:MM format)
+- **current-step**: Current stage and action (pipelines) or build phase (CodeBuild) being executed or that failed
+- **timer**: Duration the pipeline/build has been running or since completion
+- **error-details**: For failed pipelines/builds, 2-3 lines of actionable error information (⚠️ icon)
 
 ### Status Accuracy
 
-The tool uses intelligent status detection to provide accurate pipeline states:
+The tool uses intelligent status detection to provide accurate pipeline and build states:
 - **Handles AWS API timing**: When executions show "InProgress" but all actions are complete, status displays as "Succeeded"
-- **Consistent display**: Status always matches the step information shown
-- **Real-time accuracy**: Shows the true current state of your pipelines
+- **Consistent display**: Status always matches the step/phase information shown
+- **Real-time accuracy**: Shows the true current state of your pipelines and builds
+- **Multi-service support**: Unified display for both CodePipeline and CodeBuild with consistent formatting
 
 ### Error Details for Failed Pipelines
 
-When pipelines fail, the tool automatically displays helpful debugging information:
-- **Error messages**: Direct error messages from AWS CodePipeline actions
-- **Failure summaries**: Additional context from build/test/deploy tools
+When pipelines or builds fail, the tool automatically displays helpful debugging information:
+- **Error messages**: Direct error messages from AWS CodePipeline actions and CodeBuild phases
+- **Failure summaries**: Additional context from build/test/deploy tools and build logs
 - **Smart truncation**: Long messages are shortened for terminal readability
 - **Visual indicators**: Red warning icons (⚠️) highlight error details
-- **No configuration needed**: Error details appear automatically for failed pipelines
+- **No configuration needed**: Error details appear automatically for failed pipelines and builds
+- **CloudWatch integration**: CodeBuild failures show relevant log group information when available
 
 ## AWS Permissions
 
@@ -204,7 +219,10 @@ Your AWS user needs these IAM permissions:
                 "codepipeline:ListPipelines",
                 "codepipeline:ListPipelineExecutions", 
                 "codepipeline:ListActionExecutions",
-                "codepipeline:GetPipeline"
+                "codepipeline:GetPipeline",
+                "codebuild:ListProjects",
+                "codebuild:ListBuildsForProject",
+                "codebuild:BatchGetBuilds"
             ],
             "Resource": "*"
         }
@@ -242,8 +260,8 @@ rake clean        # Clean up build artifacts
 ### Common Issues
 
 1. **Invalid credentials**: Verify your AWS credentials (CLI or manual)
-2. **Permission denied**: Ensure your AWS user has the required CodePipeline permissions
-3. **Pipeline not found**: Check pipeline name spelling and AWS region
+2. **Permission denied**: Ensure your AWS user has the required CodePipeline and CodeBuild permissions
+3. **Pipeline/project not found**: Check pipeline/project name spelling and AWS region
 4. **Connection issues**: Verify internet connection and firewall settings
 5. **AWS CLI not detected**: Install and configure AWS CLI with `aws configure`
 6. **SSO token expired**: Tool will automatically refresh, or manually run `aws sso login`

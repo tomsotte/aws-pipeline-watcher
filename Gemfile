@@ -4,6 +4,7 @@ source 'https://rubygems.org'
 
 ruby '>= 3.0.0'
 
+gem 'aws-sdk-codebuild', '~> 1.0'
 gem 'aws-sdk-codepipeline', '~> 1.0'
 gem 'aws-sdk-sso', '~> 1.0'
 gem 'aws-sdk-ssooidc', '~> 1.0'

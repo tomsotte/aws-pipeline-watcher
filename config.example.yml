@@ -19,6 +19,13 @@ pipeline_names:
   - api-service-pipeline
   - database-migration-pipeline
   - frontend-deployment
+
+# List of CodeBuild project names to monitor
+codebuild_project_names:
+  - my-web-app-build
+  - api-service-build
+  - unit-test-runner
+  - integration-tests
 # Advanced options (optional)
 # sso_session: my-sso-session # For AWS SSO sessions
 # refresh_interval: 1800 # Token refresh check interval in seconds (default: 30 minutes)
