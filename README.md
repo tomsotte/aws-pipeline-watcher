@@ -29,15 +29,10 @@ A Ruby CLI tool that provides live updates showing the status of AWS CodePipelin
 
 ```bash
 # Add the tap
-brew tap your-username/aws-pipeline-watcher
+brew tap tomsotte/aws-pipeline-watcher
 
 # Install the tool
 brew install aws-pipeline-watcher
-```
-
-Or install directly:
-```bash
-brew install https://raw.githubusercontent.com/your-username/aws-pipeline-watcher/main/Formula/aws-pipeline-watcher.rb
 ```
 
 ### 📦 Manual Installation
