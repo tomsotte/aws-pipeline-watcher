@@ -179,7 +179,7 @@ module PipelineWatcher
           # Calculate timer
           timer = calculate_timer(started_at, actual_status)
 
-          new_display = format_pipeline_display(pipeline_name, actual_status, timer, source_revision, step_info[:error_details])
+          new_display = format_pipeline_display(pipeline_name, actual_status, timer, source_revision, step_info[:error_details], step_info[:step])
         else
           new_display = format_no_execution_display(pipeline_name)
         end
@@ -200,17 +200,42 @@ module PipelineWatcher
       end
     end
 
-    def format_pipeline_display(name, status, timer, source_revision, error_details = nil)
-      status_color = case status
+    def format_pipeline_display(name, status, timer, source_revision, error_details = nil, step = nil)
+      # Determine step display and color based on status and step info
+      if step
+        if step == 'Completed'
+          step_display = 'Completed'
+          step_color = :green
+        elsif step.include?('FAILED')
+          step_display = step
+          step_color = :red
+        elsif status == 'InProgress'
+          step_display = step
+          step_color = :yellow
+        elsif status == 'Succeeded'
+          step_display = 'Completed'
+          step_color = :green
+        elsif status == 'Failed'
+          step_display = step.include?('FAILED') ? step : "#{step} (FAILED)"
+          step_color = :red
+        else
+          step_display = step
+          step_color = :cyan
+        end
+      else
+        # Fallback to status-based display
+        step_display = status
+        step_color = case status
                      when 'Succeeded' then :green
                      when 'Failed' then :red
                      when 'InProgress' then :yellow
                      when 'Stopped' then :light_red
                      else :white
                      end
+      end
 
       line1 = "• #{name}"
-      line2 = "  #{status.colorize(status_color)} | #{timer.colorize(:light_black)}"
+      line2 = "  #{step_display.colorize(step_color)} | #{timer.colorize(:light_black)}"
       line3 = "  #{source_revision}".colorize(:light_black)
 
       # Add error details for failed pipelines

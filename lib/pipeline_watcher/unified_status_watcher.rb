@@ -222,7 +222,7 @@ module PipelineWatcher
           # Calculate timer
           timer = calculate_timer(started_at, actual_status)
 
-          new_display = format_pipeline_display(pipeline_name, actual_status, timer, source_revision, step_info[:error_details])
+          new_display = format_pipeline_display(pipeline_name, actual_status, timer, source_revision, step_info[:error_details], step_info[:step])
         else
           new_display = format_no_execution_display(pipeline_name)
         end
@@ -259,7 +259,7 @@ module PipelineWatcher
           # Calculate timer
           timer = calculate_build_timer(started_at, status, latest_build.end_time)
 
-          new_display = format_build_display(project_name, status, timer, source_revision, phase_info[:error_details])
+          new_display = format_build_display(project_name, status, timer, source_revision, phase_info[:error_details], phase_info[:phase])
         else
           new_display = format_no_builds_display(project_name)
         end
@@ -280,16 +280,42 @@ module PipelineWatcher
       end
     end
 
-    def format_pipeline_display(name, status, timer, source_revision, error_details = nil)
-      status_color = case status
+    def format_pipeline_display(name, status, timer, source_revision, error_details = nil, step = nil)
+      # Determine step display and color based on status and step info
+      if step
+        if step == 'Completed'
+          step_display = 'Completed'
+          step_color = :green
+        elsif step.include?('FAILED')
+          step_display = step
+          step_color = :red
+        elsif status == 'InProgress'
+          step_display = step
+          step_color = :yellow
+        elsif status == 'Succeeded'
+          step_display = 'Completed'
+          step_color = :green
+        elsif status == 'Failed'
+          step_display = step.include?('FAILED') ? step : "#{step} (FAILED)"
+          step_color = :red
+        else
+          step_display = step
+          step_color = :cyan
+        end
+      else
+        # Fallback to status-based display
+        step_display = status
+        step_color = case status
                      when 'Succeeded' then :green
                      when 'Failed' then :red
                      when 'InProgress' then :yellow
                      when 'Stopped' then :light_red
                      else :white
                      end
+      end
+
       line1 = "• #{name}"
-      line2 = "  #{status.colorize(status_color)} | #{timer.colorize(:light_black)}"
+      line2 = "  #{step_display.colorize(step_color)} | #{timer.colorize(:light_black)}"
       line3 = "  #{source_revision}".colorize(:light_black)
 
       # Add error details for failed pipelines
@@ -302,20 +328,44 @@ module PipelineWatcher
       lines
     end
 
-    def format_build_display(name, status, timer, source_revision, error_details = nil)
-      status_color = case status
-                     when 'SUCCEEDED' then :green
-                     when 'FAILED' then :red
-                     when 'IN_PROGRESS' then :yellow
-                     when 'STOPPED' then :light_red
-                     when 'FAULT' then :red
-                     when 'TIMED_OUT' then :light_red
-                     else :white
-                     end
-      display_status = status.gsub('_', ' ').downcase.capitalize
+    def format_build_display(name, status, timer, source_revision, error_details = nil, phase = nil)
+      # Determine phase display and color based on status and phase info
+      if phase
+        if phase == 'Completed'
+          phase_display = 'Completed'
+          phase_color = :green
+        elsif phase.include?('FAILED') || phase == 'Failed'
+          phase_display = phase
+          phase_color = :red
+        elsif phase.include?('running') || status == 'IN_PROGRESS'
+          phase_display = phase
+          phase_color = :yellow
+        elsif status == 'SUCCEEDED'
+          phase_display = 'Completed'
+          phase_color = :green
+        elsif status == 'FAILED' || status == 'FAULT' || status == 'TIMED_OUT'
+          phase_display = phase.include?('FAILED') ? phase : "#{phase} (FAILED)"
+          phase_color = :red
+        else
+          phase_display = phase
+          phase_color = :cyan
+        end
+      else
+        # Fallback to status-based display
+        phase_display = status.gsub('_', ' ').downcase.capitalize
+        phase_color = case status
+                      when 'SUCCEEDED' then :green
+                      when 'FAILED' then :red
+                      when 'IN_PROGRESS' then :yellow
+                      when 'STOPPED' then :light_red
+                      when 'FAULT' then :red
+                      when 'TIMED_OUT' then :light_red
+                      else :white
+                      end
+      end
 
       line1 = "• #{name}"
-      line2 = "  #{display_status.colorize(status_color)} | #{timer.colorize(:light_black)}"
+      line2 = "  #{phase_display.colorize(phase_color)} | #{timer.colorize(:light_black)}"
       line3 = "  #{source_revision}".colorize(:light_black)
 
       # Add error details for failed builds

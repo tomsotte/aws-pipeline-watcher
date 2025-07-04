@@ -2,17 +2,17 @@
 
 > Disclaimer: this project was made entirely with GitHub Copilot agent. No other human developer has been exploited.
 
-A Ruby CLI tool that provides live updates showing the status of AWS CodePipelines and CodeBuild projects with real-time monitoring and colorful output.
+A Ruby CLI tool that provides live updates showing the current step/phase of AWS CodePipelines and CodeBuild projects with real-time monitoring and colorful output.
 
 ## Features
 
 - 🔄 **Real-time monitoring** - Updates every 5 seconds with steady, flicker-free UI
-- 🎯 **Accurate status display** - Intelligent status detection that shows true pipeline and build state
+- 🎯 **Step-focused display** - Shows current pipeline stage/action and build phase instead of generic status
 - 🚨 **Error details for failures** - Failed pipelines and builds show 2-3 lines of actionable error information
 - 🔐 **AWS SSO support** - Automatic token refresh for AWS SSO users
-- 🎨 **Color-coded status** - Easy to identify pipeline and build states at a glance
+- 🎨 **Color-coded steps** - Green for completed, yellow for in-progress, red for failed, cyan for neutral
 - ⚙️ **Easy configuration** - Simple setup with standard config paths (XDG compliant)
-- 📊 **Detailed information** - Shows execution status, source revision, timing, and current steps/phases
+- 📊 **Detailed information** - Shows current step/phase, source revision, timing, and failure details
 - 🔧 **Multiple service support** - Monitor several pipelines and CodeBuild projects simultaneously
 - 🖥️ **Smooth UI** - In-place updates without screen flickering or blinking
 - 🏗️ **CodeBuild integration** - Full support for AWS CodeBuild projects alongside CodePipelines
@@ -151,17 +151,17 @@ The tool displays pipeline and CodeBuild project information in this format:
 
 ```
 • item-name
-  Status | timer
+  Current Step/Phase | timer
   commit-hash: commit-message
 ```
 
-### Status Colors
+### Step/Phase Colors
 
-- 🟢 **Green**: Succeeded
-- 🔴 **Red**: Failed
-- 🟡 **Yellow**: InProgress
-- 🟠 **Light Red**: Stopped
-- ⚪ **White**: Other statuses
+- 🟢 **Green**: Completed steps/phases
+- 🔴 **Red**: Failed steps/phases  
+- 🟡 **Yellow**: Currently running steps/phases
+- 🔵 **Cyan**: Neutral/informational steps
+- 🟠 **Light Red**: Stopped pipelines
 
 ### Example Output
 
@@ -171,26 +171,26 @@ AWS Pipeline/CodeBuild Watcher - Last updated: 2024-01-15 14:30:25
 
 CodePipelines:
 • my-web-app-pipeline
-  InProgress | 5m 23s (running)
+  Build:BuildAction (running) | 5m 23s (running)
   a1b2c3d4: Add user authentication feature
 
 • api-service-pipeline
-  Succeeded | 12m 34s (completed)
+  Completed | 12m 34s (completed)
   e5f6g7h8: Fix API endpoint validation
 
 • database-migration-pipeline
-  Failed | 10m 15s (completed)
+  Deploy:DeployAction (FAILED) | 10m 15s (completed)
   i9j0k1l2: Update database schema for user profiles
     ⚠️  Error: Test suite failed with 3 failures in UserServiceTest
     ⚠️  Summary: Integration tests could not connect to database
 
 CodeBuild Projects:
 • my-build-project
-  In progress | 3m 45s (running)
+  BUILD (running) | 3m 45s (running)
   m3n4o5p6
 
 • integration-tests
-  Failed | 8m 12s (completed)
+  POST_BUILD (FAILED) | 8m 12s (completed)
   q7r8s9t0
     ⚠️  Error: Test suite failed with 3 failures in UserServiceTest
     ⚠️  BUILD: Command did not complete successfully
@@ -201,17 +201,20 @@ Refreshing in 5 seconds... (Press Ctrl+C to exit)
 ### Field Descriptions
 
 - **item-name**: Name of the CodePipeline or CodeBuild project (displayed on first line)
-- **Status**: Accurate execution status with intelligent detection (Succeeded/Succeeded, Failed/Failed, InProgress/In progress, etc.)
+- **Current Step/Phase**: Shows the specific pipeline stage:action or build phase that is currently running or failed, rather than generic "InProgress"/"Failed" status
 - **timer**: Duration the pipeline/build has been running or since completion
 - **commit-hash**: Short Git commit hash (first 8 characters)
 - **commit-message**: Clean commit message extracted from source revision (automatically parses GitHub/CodeCommit JSON format)
 - **error-details**: For failed pipelines/builds, up to 2 lines of actionable error information (⚠️ icon)
 
-### Status Accuracy
+### Step-Focused Display
 
-The tool uses intelligent status detection to provide accurate pipeline and build states:
-- **Handles AWS API timing**: When executions show "InProgress" but all actions are complete, status displays as "Succeeded"
-- **Consistent display**: Status always matches the step/phase information shown
+The tool prioritizes showing the current step/phase rather than generic status:
+- **Pipeline Steps**: Shows specific stage and action (e.g., "Build:BuildAction", "Deploy:DeployAction") instead of just "InProgress"
+- **Build Phases**: Shows current build phase (e.g., "INSTALL", "BUILD", "POST_BUILD") instead of generic "In progress"
+- **Completion Status**: Shows "Completed" for successful executions rather than "Succeeded"
+- **Failure Details**: Shows the specific step/phase that failed (e.g., "Deploy:DeployAction (FAILED)")
+- **Color Coding**: Green for completed, yellow for running, red for failed, cyan for informational
 - **Real-time accuracy**: Shows the true current state of your pipelines and builds
 - **Multi-service support**: Unified display for both CodePipeline and CodeBuild with consistent formatting
 - **Smart commit parsing**: Automatically extracts clean commit messages from JSON metadata provided by GitHub and CodeCommit
