@@ -8,9 +8,12 @@ require 'time'
 require 'json'
 require 'open3'
 require_relative 'aws_credential_manager'
+require_relative 'timer_utils'
 
 module PipelineWatcher
   class UnifiedStatusWatcher
+    include TimerUtils
+
     def initialize(config, credential_manager = nil)
       @config = config
       @credential_manager = credential_manager || AwsCredentialManager.new(config)
@@ -219,10 +222,10 @@ module PipelineWatcher
             actual_status = 'Succeeded'
           end
 
-          # Calculate timer
-          timer = calculate_timer(started_at, actual_status)
+          # Calculate timer info
+          timer_info = calculate_timer_info(started_at, actual_status)
 
-          new_display = format_pipeline_display(pipeline_name, actual_status, timer, source_revision, step_info[:error_details], step_info[:step])
+          new_display = format_pipeline_display(pipeline_name, actual_status, timer_info, source_revision, step_info[:error_details], step_info[:step])
         else
           new_display = format_no_execution_display(pipeline_name)
         end
@@ -256,10 +259,10 @@ module PipelineWatcher
           # Get current phase info
           phase_info = get_current_phase_info(latest_build)
 
-          # Calculate timer
-          timer = calculate_build_timer(started_at, status, latest_build.end_time)
+          # Calculate timer info
+          timer_info = calculate_timer_info(started_at, status, latest_build.end_time)
 
-          new_display = format_build_display(project_name, status, timer, source_revision, phase_info[:error_details], phase_info[:phase])
+          new_display = format_build_display(project_name, status, timer_info, source_revision, phase_info[:error_details], phase_info[:phase])
         else
           new_display = format_no_builds_display(project_name)
         end
@@ -280,7 +283,7 @@ module PipelineWatcher
       end
     end
 
-    def format_pipeline_display(name, status, timer, source_revision, error_details = nil, step = nil)
+    def format_pipeline_display(name, status, timer_info, source_revision, error_details = nil, step = nil)
       # Determine step display and color based on status and step info
       if step
         if step == 'Completed'
@@ -315,7 +318,7 @@ module PipelineWatcher
       end
 
       line1 = "• #{name}"
-      line2 = "  #{step_display.colorize(step_color)} | #{timer.colorize(:light_black)}"
+      line2 = "  #{step_display.colorize(step_color)} | #{timer_info.colorize(:light_black)}"
       line3 = "  #{source_revision}".colorize(:light_black)
 
       # Add error details for failed pipelines
@@ -328,7 +331,7 @@ module PipelineWatcher
       lines
     end
 
-    def format_build_display(name, status, timer, source_revision, error_details = nil, phase = nil)
+    def format_build_display(name, status, timer_info, source_revision, error_details = nil, phase = nil)
       # Determine phase display and color based on status and phase info
       if phase
         if phase == 'Completed'
@@ -365,7 +368,7 @@ module PipelineWatcher
       end
 
       line1 = "• #{name}"
-      line2 = "  #{phase_display.colorize(phase_color)} | #{timer.colorize(:light_black)}"
+      line2 = "  #{phase_display.colorize(phase_color)} | #{timer_info.colorize(:light_black)}"
       line3 = "  #{source_revision}".colorize(:light_black)
 
       # Add error details for failed builds
@@ -669,48 +672,6 @@ module PipelineWatcher
       @credential_manager.credentials_valid?(@sts_client)
     end
 
-    def calculate_timer(started_at, status)
-      return 'N/A' unless started_at
 
-      duration = Time.now - started_at
-
-      case status
-      when 'InProgress'
-        "#{format_duration(duration)} (running)"
-      when 'Succeeded', 'Failed', 'Stopped'
-        "#{format_duration(duration)} (completed)"
-      else
-        format_duration(duration)
-      end
-    end
-
-    def calculate_build_timer(started_at, status, ended_at = nil)
-      return 'N/A' unless started_at
-
-      if status == 'IN_PROGRESS'
-        duration = Time.now - started_at
-        "#{format_duration(duration)} (running)"
-      elsif ended_at
-        duration = ended_at - started_at
-        "#{format_duration(duration)} (completed)"
-      else
-        duration = Time.now - started_at
-        "#{format_duration(duration)} (completed)"
-      end
-    end
-
-    def format_duration(seconds)
-      hours = (seconds / 3600).to_i
-      minutes = ((seconds % 3600) / 60).to_i
-      secs = (seconds % 60).to_i
-
-      if hours.positive?
-        "#{hours}h #{minutes}m #{secs}s"
-      elsif minutes.positive?
-        "#{minutes}m #{secs}s"
-      else
-        "#{secs}s"
-      end
-    end
   end
 end
