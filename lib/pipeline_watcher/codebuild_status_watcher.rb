@@ -39,12 +39,6 @@ module PipelineWatcher
 
       loop do
         begin
-          # Check if we need to refresh credentials (every 30 minutes)
-          if @credential_manager.should_refresh_credentials?
-            check_and_refresh_credentials
-            @credential_manager.mark_credentials_checked
-          end
-
           if @first_run
             display_initial_screen
             @first_run = false
@@ -54,14 +48,8 @@ module PipelineWatcher
           sleep 5
         rescue Aws::Errors::ServiceError => e
           if @credential_manager.credentials_error?(e.message)
-            display_error("AWS credentials may be expired, attempting refresh...")
-            if @config['use_aws_cli'] && refresh_aws_credentials_runtime
-              display_error("Credentials refreshed, retrying...")
-              sleep 2
-            else
-              display_error("AWS Error: #{e.message}")
-              sleep 10
-            end
+            display_error("AWS credentials are invalid or expired. Please run: aws sso login")
+            sleep 10
           else
             display_error("AWS Error: #{e.message}")
             sleep 10
@@ -122,7 +110,7 @@ module PipelineWatcher
       end
 
       puts
-      puts 'Refreshing in 5 seconds... (Press Ctrl+C to exit)'.colorize(:light_black)
+      puts 'Updating in 5 seconds... (Press Ctrl+C to exit)'.colorize(:light_black)
 
       # Now populate with actual data
       @config['codebuild_project_names'].each do |project_name|
@@ -366,17 +354,7 @@ module PipelineWatcher
       { phase: 'Unknown', error_details: nil }
     end
 
-    def check_and_refresh_credentials
-      unless @credential_manager.credentials_valid?(@sts_client)
-        puts 'Credentials expired, refreshing...'.colorize(:yellow)
-        refresh_aws_credentials_runtime
-      end
-    end
 
-    def refresh_aws_credentials_runtime
-      @codebuild_client, @sts_client = @credential_manager.refresh_runtime_codebuild_clients(@codebuild_client, @sts_client)
-      @credential_manager.credentials_valid?(@sts_client)
-    end
 
     def get_failure_details(build)
       details = []

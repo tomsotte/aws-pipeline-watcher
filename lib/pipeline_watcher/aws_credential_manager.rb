@@ -4,20 +4,12 @@ require 'aws-sdk-codepipeline'
 require 'aws-sdk-codebuild'
 require 'aws-sdk-sts'
 require 'open3'
-require 'yaml'
-require 'json'
-require 'time'
-require 'fileutils'
 require 'colorize'
 
 module PipelineWatcher
   class AwsCredentialManager
-    CONFIG_DIR = File.expand_path('~/.config/aws-pipeline-watcher')
-    CREDENTIALS_FILE = File.join(CONFIG_DIR, 'credentials.yml')
-
     def initialize(config)
       @config = config
-      @last_token_check = Time.now
     end
 
     def create_clients
@@ -71,16 +63,7 @@ module PipelineWatcher
             config[:account_id] = sts_output.strip
             config[:detected] = true
           elsif sts_stderr.include?('token') || sts_stderr.include?('expire')
-            # Token might be expired, try to refresh
-            puts 'AWS credentials may be expired, attempting refresh...'.colorize(:yellow)
-            if refresh_aws_credentials(config[:profile])
-              # Retry getting account ID
-              sts_output, _sts_stderr, sts_status = Open3.capture3('aws sts get-caller-identity --query Account --output text')
-              if sts_status.success?
-                config[:account_id] = sts_output.strip
-                config[:detected] = true
-              end
-            end
+            puts 'AWS credentials are invalid or expired. Please run: aws sso login'.colorize(:yellow)
           end
         end
       rescue StandardError => e
@@ -106,130 +89,6 @@ module PipelineWatcher
         end
       rescue StandardError
         false
-      end
-    end
-
-    def should_refresh_credentials?
-      return false unless @config['use_aws_cli']
-
-      Time.now - @last_token_check > 1800 # 30 minutes
-    end
-
-    def mark_credentials_checked
-      @last_token_check = Time.now
-    end
-
-    def refresh_aws_credentials(profile = nil)
-      profile ||= @config['aws_profile'] || 'default'
-
-      begin
-        puts 'Attempting to refresh AWS SSO credentials...'.colorize(:cyan)
-
-        # Try AWS SSO login
-        _login_output, login_stderr, login_status = Open3.capture3("aws sso login --profile #{profile}")
-
-        if login_status.success?
-          puts 'AWS SSO credentials refreshed successfully!'.colorize(:green)
-
-          # Save token information if available
-          save_refreshed_credentials(profile)
-          mark_credentials_checked
-          return true
-        else
-          puts "SSO login failed: #{login_stderr}".colorize(:red)
-          return false
-        end
-      rescue StandardError => e
-        puts "Error refreshing credentials: #{e.message}".colorize(:red)
-        return false
-      end
-    end
-
-    def refresh_runtime_clients(codepipeline_client, sts_client)
-      return [codepipeline_client, sts_client] unless @config['use_aws_cli']
-
-      begin
-        profile = @config['aws_profile'] || 'default'
-
-        # Try AWS SSO login
-        _login_output, login_stderr, login_status = Open3.capture3("aws sso login --profile #{profile}")
-
-        if login_status.success?
-          # Recreate the clients with refreshed credentials
-          client_options = build_client_options
-
-          new_codepipeline_client = Aws::CodePipeline::Client.new(client_options)
-          new_sts_client = Aws::STS::Client.new(client_options)
-
-          puts 'AWS credentials refreshed successfully!'.colorize(:green)
-          mark_credentials_checked
-          return [new_codepipeline_client, new_sts_client]
-        else
-          puts "Failed to refresh credentials: #{login_stderr}".colorize(:red)
-          return [codepipeline_client, sts_client]
-        end
-      rescue StandardError => e
-        puts "Error during credential refresh: #{e.message}".colorize(:red)
-        return [codepipeline_client, sts_client]
-      end
-    end
-
-    def refresh_runtime_codebuild_clients(codebuild_client, sts_client)
-      return [codebuild_client, sts_client] unless @config['use_aws_cli']
-
-      begin
-        profile = @config['aws_profile'] || 'default'
-
-        # Try AWS SSO login
-        _login_output, login_stderr, login_status = Open3.capture3("aws sso login --profile #{profile}")
-
-        if login_status.success?
-          # Recreate the clients with refreshed credentials
-          client_options = build_client_options
-
-          new_codebuild_client = Aws::CodeBuild::Client.new(client_options)
-          new_sts_client = Aws::STS::Client.new(client_options)
-
-          puts 'AWS credentials refreshed successfully!'.colorize(:green)
-          mark_credentials_checked
-          return [new_codebuild_client, new_sts_client]
-        else
-          puts "Failed to refresh credentials: #{login_stderr}".colorize(:red)
-          return [codebuild_client, sts_client]
-        end
-      rescue StandardError => e
-        puts "Error during credential refresh: #{e.message}".colorize(:red)
-        return [codebuild_client, sts_client]
-      end
-    end
-
-    def refresh_runtime_unified_clients(codepipeline_client, codebuild_client, sts_client)
-      return [codepipeline_client, codebuild_client, sts_client] unless @config['use_aws_cli']
-
-      begin
-        profile = @config['aws_profile'] || 'default'
-
-        # Try AWS SSO login
-        _login_output, login_stderr, login_status = Open3.capture3("aws sso login --profile #{profile}")
-
-        if login_status.success?
-          # Recreate the clients with refreshed credentials
-          client_options = build_client_options
-
-          new_codepipeline_client = Aws::CodePipeline::Client.new(client_options)
-          new_codebuild_client = Aws::CodeBuild::Client.new(client_options)
-          new_sts_client = Aws::STS::Client.new(client_options)
-
-          puts 'AWS credentials refreshed successfully!'.colorize(:green)
-          mark_credentials_checked
-          return [new_codepipeline_client, new_codebuild_client, new_sts_client]
-        else
-          puts "Failed to refresh credentials: #{login_stderr}".colorize(:red)
-          return [codepipeline_client, codebuild_client, sts_client]
-        end
-      rescue StandardError => e
-        puts "Error during credential refresh: #{e.message}".colorize(:red)
-        return [codepipeline_client, codebuild_client, sts_client]
       end
     end
 
@@ -265,41 +124,6 @@ module PipelineWatcher
       end
 
       client_options
-    end
-
-    def save_refreshed_credentials(profile)
-      begin
-        # Try to get the current credentials and save them
-        aws_dir = File.expand_path('~/.aws')
-        credentials_cache_dir = File.join(aws_dir, 'sso', 'cache')
-
-        if Dir.exist?(credentials_cache_dir)
-          # Find the most recent cache file
-          cache_files = Dir.glob(File.join(credentials_cache_dir, '*.json'))
-          if !cache_files.empty?
-            latest_cache = cache_files.max_by { |f| File.mtime(f) }
-            cache_data = JSON.parse(File.read(latest_cache))
-
-            if cache_data['accessToken'] && cache_data['expiresAt']
-              # Save token info to our credentials file
-              FileUtils.mkdir_p(CONFIG_DIR) unless Dir.exist?(CONFIG_DIR)
-
-              credentials = {
-                'sso_access_token' => cache_data['accessToken'],
-                'sso_expires_at' => cache_data['expiresAt'],
-                'last_refreshed' => Time.now.iso8601,
-                'profile' => profile
-              }
-
-              File.write(CREDENTIALS_FILE, credentials.to_yaml)
-              puts "Credentials cached locally".colorize(:light_black)
-            end
-          end
-        end
-      rescue StandardError => e
-        # Don't fail if we can't save credentials, just log
-        puts "Note: Could not cache credentials locally (#{e.message})".colorize(:light_black) if ENV['DEBUG']
-      end
     end
   end
 end

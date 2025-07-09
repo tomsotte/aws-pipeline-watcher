@@ -14,7 +14,7 @@ module PipelineWatcher
   class CLI < Thor
     CONFIG_DIR = File.expand_path('~/.config/aws-pipeline-watcher')
     CONFIG_FILE = File.join(CONFIG_DIR, 'config.yml')
-    CREDENTIALS_FILE = File.join(CONFIG_DIR, 'credentials.yml')
+
 
     desc 'config', 'Configure AWS credentials, pipeline and CodeBuild project settings'
     def config
@@ -108,7 +108,7 @@ module PipelineWatcher
 
       credential_manager = AwsCredentialManager.new(config)
 
-      unless config_valid?(config, credential_manager)
+      unless config_valid?(config)
         puts "Configuration missing or incomplete. Please run 'config' command first.".colorize(:red)
         puts "Make sure to configure at least one pipeline or CodeBuild project to monitor.".colorize(:yellow)
         return
@@ -125,21 +125,29 @@ module PipelineWatcher
 
       config = YAML.load_file(CONFIG_FILE) || {}
 
-      # Load and merge credentials if they exist
-      if File.exist?(CREDENTIALS_FILE)
-        credentials = YAML.load_file(CREDENTIALS_FILE) || {}
-        config.merge!(credentials)
-      end
+
 
       config
     rescue StandardError
       {}
     end
 
-    def config_valid?(config, credential_manager)
-      credential_manager.validate_config(config) &&
-        ((config['pipeline_names'] && config['pipeline_names'].is_a?(Array) && !config['pipeline_names'].empty?) ||
-         (config['codebuild_project_names'] && config['codebuild_project_names'].is_a?(Array) && !config['codebuild_project_names'].empty?))
+    def config_valid?(config)
+      # Check if using AWS CLI or manual credentials
+      if config['use_aws_cli']
+        required_keys = %w[aws_region aws_account_id]
+      else
+        required_keys = %w[aws_access_key_id aws_secret_access_key aws_region aws_account_id]
+      end
+
+      # Validate required credentials
+      credentials_valid = required_keys.all? { |key| config[key] && !config[key].to_s.empty? }
+
+      # Validate that at least one pipeline or codebuild project is configured
+      has_items = ((config['pipeline_names'] && config['pipeline_names'].is_a?(Array) && !config['pipeline_names'].empty?) ||
+                   (config['codebuild_project_names'] && config['codebuild_project_names'].is_a?(Array) && !config['codebuild_project_names'].empty?))
+
+      !!(credentials_valid && has_items)
     end
 
 

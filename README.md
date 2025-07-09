@@ -9,7 +9,7 @@ A Ruby CLI tool that provides live updates showing the current step/phase of AWS
 - 🔄 **Real-time monitoring** - Updates every 5 seconds with steady, flicker-free UI
 - 🎯 **Step-focused display** - Shows current pipeline stage/action and build phase instead of generic status
 - 🚨 **Error details for failures** - Failed pipelines and builds show 2-3 lines of actionable error information
-- 🔐 **AWS SSO support** - Automatic token refresh for AWS SSO users
+- 🔐 **AWS SSO support** - Works with AWS SSO authentication
 - 🎨 **Color-coded steps** - Green for completed, yellow for in-progress, red for failed, cyan for neutral
 - ⚙️ **Easy configuration** - Simple setup with standard config paths (XDG compliant)
 - 📊 **Detailed information** - Shows current step/phase, source revision, timing, and failure details
@@ -118,13 +118,9 @@ codebuild_project_names:
   - my-build-project-2
 ```
 
-### AWS SSO Token Management
+### AWS SSO
 
-For AWS SSO users, the tool automatically:
-- **Detects expired tokens** during monitoring
-- **Refreshes credentials** using `aws sso login`
-- **Caches tokens** in `~/.config/aws-pipeline-watcher/credentials.yml`
-- **Continues monitoring** seamlessly after refresh
+For AWS SSO users, if credentials expire during monitoring, the tool will display an error message. Simply run `aws sso login` in another terminal to authenticate again.
 
 ## Usage
 
@@ -195,7 +191,7 @@ CodeBuild Projects:
     ⚠️  Error: Test suite failed with 3 failures in UserServiceTest
     ⚠️  BUILD: Command did not complete successfully
 
-Refreshing in 5 seconds... (Press Ctrl+C to exit)
+Updating in 5 seconds... (Press Ctrl+C to exit)
 ```
 
 ### Field Descriptions
@@ -289,7 +285,7 @@ rake clean        # Clean up build artifacts
 3. **Pipeline/project not found**: Check pipeline/project name spelling and AWS region
 4. **Connection issues**: Verify internet connection and firewall settings
 5. **AWS CLI not detected**: Install and configure AWS CLI with `aws configure`
-6. **SSO token expired**: Tool will automatically refresh, or manually run `aws sso login`
+6. **SSO token expired**: Run `aws sso login` to authenticate again
 7. **Config not found**: Configuration is now stored in `~/.config/aws-pipeline-watcher/`
 
 ### Getting Help
@@ -298,7 +294,7 @@ rake clean        # Clean up build artifacts
 - Run `aws-pipeline-watcher help` for command information
 - Verify your AWS credentials and permissions
 - Test AWS CLI with `aws sts get-caller-identity` and `aws configure list`
-- For SSO issues, verify with `aws sso login --profile your-profile`
+- For SSO issues, authenticate with `aws sso login --profile your-profile`
 - Config location: `~/.config/aws-pipeline-watcher/config.yml`
 
 ## Contributing

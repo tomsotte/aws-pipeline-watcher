@@ -2,7 +2,7 @@
 # This file will be automatically created at ~/.config/aws-pipeline-watcher/config.yml
 
 # Option 1: Use AWS CLI credentials with SSO (recommended)
-# The tool will automatically detect your AWS CLI configuration and refresh tokens
+# The tool will automatically detect your AWS CLI configuration
 use_aws_cli: true
 aws_profile: default # or specify your profile name
 aws_region: us-east-1
@@ -28,4 +28,3 @@ codebuild_project_names:
   - integration-tests
 # Advanced options (optional)
 # sso_session: my-sso-session # For AWS SSO sessions
-# refresh_interval: 1800 # Token refresh check interval in seconds (default: 30 minutes)
