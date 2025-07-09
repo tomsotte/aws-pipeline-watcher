@@ -213,7 +213,18 @@ The tool prioritizes showing the current step/phase rather than generic status:
 - **Color Coding**: Green for completed, yellow for running, red for failed, cyan for informational
 - **Real-time accuracy**: Shows the true current state of your pipelines and builds
 - **Multi-service support**: Unified display for both CodePipeline and CodeBuild with consistent formatting
-- **Smart commit parsing**: Automatically extracts clean commit messages from JSON metadata provided by GitHub and CodeCommit
+- **Basic commit tracking**: Shows commit hashes for CodeBuild projects when available from AWS API
+
+### CodeBuild Commit Information
+
+The tool displays commit information for CodeBuild projects:
+
+- **Commit Hash Display**: Shows commit SHA from `resolved_source_version` or `source_version` fields
+- **Consistent Format**: Displays commit hashes in the same format as CodePipelines
+- **API Limitations**: CodeBuild API does not reliably provide commit messages like CodePipeline does
+- **Simple and Reliable**: Uses only standard AWS SDK fields without complex parsing
+
+Note: Unlike CodePipeline, CodeBuild typically only provides commit hashes, not commit messages, through the AWS API. This is a limitation of the CodeBuild service itself.
 
 ### Error Details for Failed Pipelines
 

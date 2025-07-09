@@ -151,17 +151,13 @@ module PipelineWatcher
 
       # Extract commit information from build
       def extract_commit_info(build)
-        return { hash: nil, message: nil } unless build.source&.location
+        # Just get the commit hash - CodeBuild doesn't reliably provide commit messages
+        commit_hash = build.resolved_source_version || build.source_version
 
-        # For CodeCommit and GitHub, try to extract commit hash
-        if build.resolved_source_version
-          {
-            hash: build.resolved_source_version,
-            message: nil # CodeBuild doesn't typically provide commit messages
-          }
-        else
-          { hash: nil, message: nil }
-        end
+        {
+          hash: commit_hash,
+          message: nil
+        }
       end
 
       # Extract failure details from failed build
