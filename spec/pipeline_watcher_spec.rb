@@ -1,17 +1,22 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'tempfile'
-require 'fileutils'
+require_relative '../lib/pipeline_watcher'
 
-RSpec.describe PipelineWatcher::CLI do
+RSpec.describe PipelineWatcher do
+  it 'has a version number' do
+    expect(PipelineWatcher::VERSION).not_to be nil
+  end
+end
+
+RSpec.describe PipelineWatcher::Config::Manager do
   let(:test_config_dir) { File.expand_path('~/.config/aws-pipeline-watcher-test') }
   let(:test_config_file) { File.join(test_config_dir, 'config.yml') }
 
   before do
     # Stub the config directory and files for testing
-    stub_const('PipelineWatcher::CLI::CONFIG_DIR', test_config_dir)
-    stub_const('PipelineWatcher::CLI::CONFIG_FILE', test_config_file)
+    stub_const('PipelineWatcher::Config::Manager::CONFIG_DIR', test_config_dir)
+    stub_const('PipelineWatcher::Config::Manager::CONFIG_FILE', test_config_file)
   end
 
   after do
@@ -22,11 +27,11 @@ RSpec.describe PipelineWatcher::CLI do
     context 'when config file exists' do
       let(:config_data) do
         {
-          'aws_access_key_id' => 'test_key',
-          'aws_secret_access_key' => 'test_secret',
+          'use_aws_cli' => true,
           'aws_region' => 'us-west-2',
           'aws_account_id' => '123456789012',
-          'pipeline_names' => %w[test-pipeline-1 test-pipeline-2]
+          'pipeline_names' => ['test-pipeline'],
+          'codebuild_project_names' => ['test-build']
         }
       end
 
@@ -36,19 +41,19 @@ RSpec.describe PipelineWatcher::CLI do
       end
 
       it 'loads the configuration from file' do
-        cli = PipelineWatcher::CLI.new
-        config = cli.send(:load_config)
-
-        expect(config).to eq(config_data)
+        manager = PipelineWatcher::Config::Manager.new
+        expect(manager.get('use_aws_cli')).to be true
+        expect(manager.get('aws_region')).to eq('us-west-2')
+        expect(manager.pipeline_names).to eq(['test-pipeline'])
       end
     end
 
     context 'when config file does not exist' do
-      it 'returns empty hash' do
-        cli = PipelineWatcher::CLI.new
-        config = cli.send(:load_config)
-
-        expect(config).to eq({})
+      it 'returns default configuration' do
+        manager = PipelineWatcher::Config::Manager.new
+        expect(manager.get('use_aws_cli')).to be true
+        expect(manager.get('aws_region')).to eq('us-east-1')
+        expect(manager.pipeline_names).to eq([])
       end
     end
 
@@ -58,17 +63,16 @@ RSpec.describe PipelineWatcher::CLI do
         File.write(test_config_file, 'invalid: yaml: content: [')
       end
 
-      it 'returns empty hash' do
-        cli = PipelineWatcher::CLI.new
-        config = cli.send(:load_config)
-
-        expect(config).to eq({})
+      it 'returns default configuration' do
+        manager = PipelineWatcher::Config::Manager.new
+        expect(manager.get('use_aws_cli')).to be true
+        expect(manager.get('aws_region')).to eq('us-east-1')
       end
     end
   end
 
-  describe '#config_valid?' do
-    let(:cli) { PipelineWatcher::CLI.new }
+  describe '#valid?' do
+    let(:manager) { PipelineWatcher::Config::Manager.new }
 
     context 'with valid manual configuration' do
       let(:valid_config) do
@@ -83,7 +87,8 @@ RSpec.describe PipelineWatcher::CLI do
       end
 
       it 'returns true' do
-        expect(cli.send(:config_valid?, valid_config)).to be true
+        manager.update(valid_config)
+        expect(manager.valid?).to be true
       end
     end
 
@@ -98,7 +103,8 @@ RSpec.describe PipelineWatcher::CLI do
       end
 
       it 'returns true' do
-        expect(cli.send(:config_valid?, valid_cli_config)).to be true
+        manager.update(valid_cli_config)
+        expect(manager.valid?).to be true
       end
     end
 
@@ -106,6 +112,7 @@ RSpec.describe PipelineWatcher::CLI do
       let(:invalid_config) do
         {
           'aws_secret_access_key' => 'test_secret',
+          'aws_region' => 'us-east-1',
           'aws_account_id' => '123456789012',
           'pipeline_names' => ['test-pipeline'],
           'use_aws_cli' => false
@@ -113,13 +120,15 @@ RSpec.describe PipelineWatcher::CLI do
       end
 
       it 'returns false' do
-        expect(cli.send(:config_valid?, invalid_config)).to be false
+        manager.update(invalid_config)
+        expect(manager.valid?).to be false
       end
     end
 
     context 'with missing aws_region for CLI config' do
-      let(:invalid_cli_config) do
+      let(:invalid_config) do
         {
+          'aws_region' => nil,
           'aws_account_id' => '123456789012',
           'pipeline_names' => ['test-pipeline'],
           'use_aws_cli' => true
@@ -127,11 +136,12 @@ RSpec.describe PipelineWatcher::CLI do
       end
 
       it 'returns false' do
-        expect(cli.send(:config_valid?, invalid_cli_config)).to be false
+        manager.update(invalid_config)
+        expect(manager.valid?).to be false
       end
     end
 
-    context 'with empty pipeline_names' do
+    context 'with empty pipeline_names and codebuild_project_names' do
       let(:invalid_config) do
         {
           'aws_access_key_id' => 'test_key',
@@ -139,274 +149,101 @@ RSpec.describe PipelineWatcher::CLI do
           'aws_region' => 'us-east-1',
           'aws_account_id' => '123456789012',
           'pipeline_names' => [],
+          'codebuild_project_names' => [],
           'use_aws_cli' => false
         }
       end
 
       it 'returns false' do
-        expect(cli.send(:config_valid?, invalid_config)).to be false
+        manager.update(invalid_config)
+        expect(manager.valid?).to be false
       end
     end
 
-    context 'with nil pipeline_names' do
-      let(:invalid_config) do
+    context 'with nil pipeline_names but valid codebuild_project_names' do
+      let(:valid_config) do
         {
           'aws_access_key_id' => 'test_key',
           'aws_secret_access_key' => 'test_secret',
           'aws_region' => 'us-east-1',
           'aws_account_id' => '123456789012',
           'pipeline_names' => nil,
+          'codebuild_project_names' => ['test-build'],
           'use_aws_cli' => false
         }
       end
 
-      it 'returns false' do
-        expect(cli.send(:config_valid?, invalid_config)).to be false
+      it 'returns true' do
+        manager.update(valid_config)
+        expect(manager.valid?).to be true
       end
     end
   end
 
+  describe '#summary' do
+    let(:manager) { PipelineWatcher::Config::Manager.new }
 
+    it 'provides a readable configuration summary' do
+      config = {
+        'use_aws_cli' => true,
+        'aws_region' => 'us-west-2',
+        'aws_profile' => 'production',
+        'aws_account_id' => '123456789012',
+        'pipeline_names' => ['app-pipeline', 'api-pipeline'],
+        'codebuild_project_names' => ['app-build']
+      }
+      manager.update(config)
 
-
+      summary = manager.summary
+      expect(summary).to include('AWS Mode: CLI')
+      expect(summary).to include('Region: us-west-2')
+      expect(summary).to include('Profile: production')
+      expect(summary).to include('Account ID: 123456789012')
+      expect(summary).to include('Pipelines: app-pipeline, api-pipeline')
+      expect(summary).to include('Builds: app-build')
+    end
+  end
 end
 
-RSpec.describe PipelineWatcher::PipelineStatusWatcher do
-  let(:config) do
-    {
-      'aws_access_key_id' => 'test_key',
-      'aws_secret_access_key' => 'test_secret',
-      'aws_region' => 'us-east-1',
-      'aws_account_id' => '123456789012',
-      'pipeline_names' => ['test-pipeline'],
-      'use_aws_cli' => false
-    }
-  end
-
-  let(:cli_config) do
-    {
-      'aws_region' => 'us-east-1',
-      'aws_account_id' => '123456789012',
-      'aws_profile' => 'default',
-      'pipeline_names' => ['test-pipeline'],
-      'use_aws_cli' => true
-    }
-  end
+RSpec.describe PipelineWatcher::Watcher do
+  let(:watcher) { PipelineWatcher::Watcher.new }
 
   describe '#initialize' do
-    it 'creates a new watcher with manual credentials config' do
-      # Mock AWS client creation to avoid actual AWS calls
-      allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
-      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
-
-      watcher = PipelineWatcher::PipelineStatusWatcher.new(config)
-      expect(watcher).to be_instance_of(PipelineWatcher::PipelineStatusWatcher)
-    end
-
-    it 'creates a new watcher with AWS CLI config' do
-      # Mock AWS client creation to avoid actual AWS calls
-      allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
-      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
-
-      watcher = PipelineWatcher::PipelineStatusWatcher.new(cli_config)
-      expect(watcher).to be_instance_of(PipelineWatcher::PipelineStatusWatcher)
+    it 'creates a watcher with all required components' do
+      expect(watcher.config).to be_a(PipelineWatcher::Config::Manager)
+      expect(watcher.renderer).to be_a(PipelineWatcher::UI::Renderer)
+      expect(watcher.monitoring_data).to be_a(PipelineWatcher::Data::MonitoringData)
     end
   end
 
-  describe '#format_duration' do
-    let(:watcher) do
-      allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
-      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
-      PipelineWatcher::PipelineStatusWatcher.new(config)
+  describe 'error handling' do
+    it 'handles interrupt signals gracefully' do
+      expect { watcher.send(:shutdown_gracefully) }.to raise_error(SystemExit)
     end
 
-    it 'formats seconds only' do
-      expect(watcher.send(:format_duration, 45)).to eq('45s')
+    it 'identifies credential errors correctly' do
+      credential_error_messages = [
+        'token expired',
+        'credential invalid',
+        'access denied',
+        'unauthorized'
+      ]
+
+      credential_error_messages.each do |message|
+        expect(watcher.send(:credential_error?, message)).to be true
+      end
     end
 
-    it 'formats minutes and seconds' do
-      expect(watcher.send(:format_duration, 125)).to eq('2m 5s')
-    end
+    it 'does not identify non-credential errors as credential errors' do
+      non_credential_errors = [
+        'network timeout',
+        'service unavailable',
+        'invalid parameter'
+      ]
 
-    it 'formats hours, minutes and seconds' do
-      expect(watcher.send(:format_duration, 3665)).to eq('1h 1m 5s')
-    end
-  end
-
-
-
-  describe '#get_source_revision' do
-    let(:watcher) do
-      allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
-      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
-      PipelineWatcher::PipelineStatusWatcher.new(config)
-    end
-
-    it 'returns shortened revision ID' do
-      execution = double('execution')
-      source_revision = double('source_revision', revision_id: 'abcdef1234567890', revision_summary: '')
-      allow(execution).to receive(:source_revisions).and_return([source_revision])
-
-      result = watcher.send(:get_source_revision, execution)
-      expect(result).to eq('abcdef12')
-    end
-
-    it 'returns full revision if shorter than 8 characters' do
-      execution = double('execution')
-      source_revision = double('source_revision', revision_id: 'abc123', revision_summary: '')
-      allow(execution).to receive(:source_revisions).and_return([source_revision])
-
-      result = watcher.send(:get_source_revision, execution)
-      expect(result).to eq('abc123')
-    end
-
-    it 'returns N/A if no source revisions' do
-      execution = double('execution')
-      allow(execution).to receive(:source_revisions).and_return([])
-
-      result = watcher.send(:get_source_revision, execution)
-      expect(result).to eq('N/A')
-    end
-
-    it 'returns N/A if source_revisions is nil' do
-      execution = double('execution')
-      allow(execution).to receive(:source_revisions).and_return(nil)
-
-      result = watcher.send(:get_source_revision, execution)
-      expect(result).to eq('N/A')
-    end
-  end
-
-  describe '#get_current_step_info' do
-    let(:watcher) do
-      allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
-      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
-      PipelineWatcher::PipelineStatusWatcher.new(config)
-    end
-
-    let(:mock_client) { double('client') }
-
-    before do
-      watcher.instance_variable_set(:@client, mock_client)
-    end
-
-    it 'returns running action info when action is in progress' do
-      running_action = double('action', status: 'InProgress', stage_name: 'Deploy', action_name: 'DeployAction')
-      response = double('response', action_execution_details: [running_action])
-      allow(mock_client).to receive(:list_action_executions).and_return(response)
-
-      result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
-      expect(result[:step]).to eq('Deploy:DeployAction')
-      expect(result[:actual_status]).to eq('InProgress')
-      expect(result[:error_details]).to be_nil
-    end
-
-    it 'returns failed action info when action has failed' do
-      error_details = double('error_details', message: 'Build failed with exit code 1')
-      failed_action = double('action',
-        status: 'Failed',
-        stage_name: 'Test',
-        action_name: 'TestAction',
-        error_details: error_details,
-        output: nil
-      )
-      response = double('response', action_execution_details: [failed_action])
-      allow(mock_client).to receive(:list_action_executions).and_return(response)
-
-      result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
-      expect(result[:step]).to eq('Test:TestAction (FAILED)')
-      expect(result[:actual_status]).to eq('Failed')
-      expect(result[:error_details]).to be_an(Array)
-      expect(result[:error_details].first).to include('Build failed with exit code 1')
-    end
-
-    it 'returns completed info when no actions are running or failed' do
-      completed_action = double('action', status: 'Succeeded', stage_name: 'Build', action_name: 'BuildAction')
-      response = double('response', action_execution_details: [completed_action])
-      allow(mock_client).to receive(:list_action_executions).and_return(response)
-
-      result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
-      expect(result[:step]).to eq('Completed')
-      expect(result[:actual_status]).to eq('Succeeded')
-      expect(result[:error_details]).to be_nil
-    end
-
-    it 'returns unknown info when an error occurs' do
-      allow(mock_client).to receive(:list_action_executions).and_raise(StandardError.new('API Error'))
-
-      result = watcher.send(:get_current_step_info, 'test-pipeline', 'exec-123')
-      expect(result[:step]).to eq('Unknown')
-      expect(result[:actual_status]).to be_nil
-      expect(result[:error_details]).to be_nil
-    end
-  end
-
-  describe '#get_failure_details' do
-    let(:watcher) do
-      allow(Aws::CodePipeline::Client).to receive(:new).and_return(double('client'))
-      allow(Aws::STS::Client).to receive(:new).and_return(double('sts_client'))
-      PipelineWatcher::PipelineStatusWatcher.new(config)
-    end
-
-    it 'returns error details when action has error message' do
-      error_details = double('error_details', message: 'Build failed with exit code 1')
-      failed_action = double('action',
-        error_details: error_details,
-        output: nil,
-        stage_name: 'Build'
-      )
-
-      result = watcher.send(:get_failure_details, failed_action)
-      expect(result).to be_an(Array)
-      expect(result.first).to include('Build failed with exit code 1')
-    end
-
-    it 'truncates long error messages' do
-      long_message = 'A' * 150  # 150 characters
-      error_details = double('error_details', message: long_message)
-      failed_action = double('action',
-        error_details: error_details,
-        output: nil,
-        stage_name: 'Build'
-      )
-
-      result = watcher.send(:get_failure_details, failed_action)
-      expect(result.first.length).to be < 135  # Should be truncated
-      expect(result.first).to include('...')
-    end
-
-    it 'returns generic message when no specific error details available' do
-      failed_action = double('action',
-        error_details: nil,
-        output: nil,
-        stage_name: 'Deploy'
-      )
-
-      result = watcher.send(:get_failure_details, failed_action)
-      expect(result).to include('Action failed in Deploy stage')
-      expect(result).to include('Check AWS Console for detailed error information')
-    end
-
-    it 'handles errors gracefully' do
-      failed_action = double('action')
-      allow(failed_action).to receive(:error_details).and_raise(StandardError.new('API Error'))
-
-      result = watcher.send(:get_failure_details, failed_action)
-      expect(result).to eq(['Failed action details unavailable'])
-    end
-
-    it 'limits results to maximum 3 lines' do
-      error_details = double('error_details', message: 'Error message')
-      execution_result = double('execution_result', external_execution_summary: 'Summary message')
-      output = double('output', execution_result: execution_result)
-      failed_action = double('action',
-        error_details: error_details,
-        output: output,
-        stage_name: 'Test'
-      )
-
-      result = watcher.send(:get_failure_details, failed_action)
-      expect(result.length).to be <= 3
+      non_credential_errors.each do |message|
+        expect(watcher.send(:credential_error?, message)).to be false
+      end
     end
   end
 end

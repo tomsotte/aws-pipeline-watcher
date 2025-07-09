@@ -1,155 +1,200 @@
 # frozen_string_literal: true
 
 require 'thor'
-require 'yaml'
-require 'fileutils'
-require 'open3'
-require 'json'
-require 'time'
-require 'colorize'
-require_relative 'aws_credential_manager'
-require_relative 'unified_status_watcher'
+require 'cli/ui'
+require_relative 'config/manager'
+require_relative 'watcher'
+require_relative 'ui/components'
 
 module PipelineWatcher
+  # Simplified CLI class using the new architecture
+  # Easy for beginners to understand and modify
   class CLI < Thor
-    CONFIG_DIR = File.expand_path('~/.config/aws-pipeline-watcher')
-    CONFIG_FILE = File.join(CONFIG_DIR, 'config.yml')
 
-
-    desc 'config', 'Configure AWS credentials, pipeline and CodeBuild project settings'
-    def config
-      puts 'AWS Pipeline/CodeBuild Watcher Configuration'.colorize(:cyan)
-      puts '=' * 40
-
-      current_config = load_config
-      credential_manager = AwsCredentialManager.new(current_config)
-      aws_cli_config = credential_manager.detect_aws_cli_config
-
-      # Show detected AWS CLI information
-      if aws_cli_config[:detected]
-        puts
-        puts 'Detected AWS CLI Configuration:'.colorize(:green)
-        puts "  Region: #{aws_cli_config[:region]}" if aws_cli_config[:region]
-        puts "  Account ID: #{aws_cli_config[:account_id]}" if aws_cli_config[:account_id]
-        puts "  Profile: #{aws_cli_config[:profile]}" if aws_cli_config[:profile]
-        puts
-      end
-
-      print "Use AWS CLI credentials? [#{aws_cli_config[:detected] ? 'Y/n' : 'y/N'}]: "
-      use_aws_cli = $stdin.gets.chomp.downcase
-      use_aws_cli = aws_cli_config[:detected] ? 'y' : 'n' if use_aws_cli.empty?
-
-      if use_aws_cli == 'y' && aws_cli_config[:detected]
-        aws_access_key_id = nil # Will use AWS CLI credentials
-        aws_secret_access_key = nil # Will use AWS CLI credentials
-        aws_region = aws_cli_config[:region]
-        aws_account_id = aws_cli_config[:account_id]
-        aws_profile = aws_cli_config[:profile]
-
-        puts 'Using AWS CLI credentials'.colorize(:green)
-      else
-        print "AWS Access Key ID [#{current_config['aws_access_key_id'] || 'not set'}]: "
-        aws_access_key_id = $stdin.gets.chomp
-        aws_access_key_id = current_config['aws_access_key_id'] if aws_access_key_id.empty?
-
-        print "AWS Secret Access Key [#{current_config['aws_secret_access_key'] ? '***hidden***' : 'not set'}]: "
-        aws_secret_access_key = $stdin.gets.chomp
-        aws_secret_access_key = current_config['aws_secret_access_key'] if aws_secret_access_key.empty?
-
-        print "AWS Region [#{current_config['aws_region'] || aws_cli_config[:region] || 'us-east-1'}]: "
-        aws_region = $stdin.gets.chomp
-        aws_region = current_config['aws_region'] || aws_cli_config[:region] || 'us-east-1' if aws_region.empty?
-
-        print "AWS Account ID [#{current_config['aws_account_id'] || aws_cli_config[:account_id] || 'not set'}]: "
-        aws_account_id = $stdin.gets.chomp
-        aws_account_id = current_config['aws_account_id'] || aws_cli_config[:account_id] if aws_account_id.empty?
-
-        aws_profile = nil
-      end
-
-      print "Pipeline names (comma-separated) [#{(current_config['pipeline_names'] || []).join(', ')}]: "
-      pipeline_names_input = $stdin.gets.chomp
-      pipeline_names = if pipeline_names_input.empty?
-                         current_config['pipeline_names'] || []
-                       else
-                         pipeline_names_input.split(',').map(&:strip)
-                       end
-
-      print "CodeBuild project names (comma-separated) [#{(current_config['codebuild_project_names'] || []).join(', ')}]: "
-      codebuild_names_input = $stdin.gets.chomp
-      codebuild_project_names = if codebuild_names_input.empty?
-                                  current_config['codebuild_project_names'] || []
-                                else
-                                  codebuild_names_input.split(',').map(&:strip)
-                                end
-
-      config = {
-        'aws_access_key_id' => aws_access_key_id,
-        'aws_secret_access_key' => aws_secret_access_key,
-        'aws_region' => aws_region,
-        'aws_account_id' => aws_account_id,
-        'aws_profile' => aws_profile,
-        'use_aws_cli' => (aws_access_key_id.nil? && aws_secret_access_key.nil?),
-        'pipeline_names' => pipeline_names,
-        'codebuild_project_names' => codebuild_project_names
-      }
-
-      FileUtils.mkdir_p(CONFIG_DIR) unless Dir.exist?(CONFIG_DIR)
-      File.write(CONFIG_FILE, config.to_yaml)
-      puts "\nConfiguration saved successfully!".colorize(:green)
-      puts "Configured #{pipeline_names.size} pipeline(s) and #{codebuild_project_names.size} CodeBuild project(s) for monitoring.".colorize(:light_black)
-      puts "Config location: #{CONFIG_FILE}".colorize(:light_black)
+    # Handle version flag properly
+    def self.exit_on_failure?
+      true
     end
 
-    desc 'watch', 'Watch pipeline and CodeBuild project statuses (default command)'
-    default_task :watch
+    desc 'version', 'Show version information'
+    def version
+      puts "AWS Pipeline Watcher v#{PipelineWatcher::VERSION}"
+    end
+
+    desc 'watch', 'Start monitoring pipelines and builds (default command)'
     def watch
-      config = load_config
+      # Set up CLI-UI
+      ::CLI::UI::StdoutRouter.enable
 
-      credential_manager = AwsCredentialManager.new(config)
+      watcher = Watcher.new
+      watcher.start
+    end
 
-      unless config_valid?(config)
-        puts "Configuration missing or incomplete. Please run 'config' command first.".colorize(:red)
-        puts "Make sure to configure at least one pipeline or CodeBuild project to monitor.".colorize(:yellow)
-        return
+    desc 'config', 'Configure AWS credentials and monitoring settings'
+    def config
+      # Set up CLI-UI
+      ::CLI::UI::StdoutRouter.enable
+
+      config_manager = Config::Manager.new
+
+      UI::Components.clear_screen
+      show_welcome_message
+
+      # Show current configuration if it exists
+      if config_manager.valid?
+        UI::Components.config_summary(config_manager)
+        return unless UI::Components.confirm("Do you want to update this configuration?")
       end
 
-      watcher = UnifiedStatusWatcher.new(config, credential_manager)
-      watcher.start_watching
+      # Collect configuration from user
+      new_config = collect_configuration(config_manager)
+
+      # Save and validate
+      config_manager.update(new_config)
+
+      if config_manager.valid?
+        UI::Components.success_message("Configuration saved successfully!")
+        UI::Components.config_summary(config_manager)
+      else
+        UI::Components.validation_errors(config_manager.validation_errors)
+        exit(1)
+      end
     end
+
+    desc 'status', 'Show current configuration and validation status'
+    def status
+      # Set up CLI-UI
+      ::CLI::UI::StdoutRouter.enable
+
+      config_manager = Config::Manager.new
+
+      UI::Components.clear_screen
+      UI::Components.config_summary(config_manager)
+
+      if config_manager.valid?
+        UI::Components.success_message("Configuration is valid and ready for monitoring")
+      else
+        UI::Components.validation_errors(config_manager.validation_errors)
+      end
+    end
+
+    # Make 'watch' the default command
+    default_task :watch
 
     private
 
-    def load_config
-      return {} unless File.exist?(CONFIG_FILE)
-
-      config = YAML.load_file(CONFIG_FILE) || {}
-
-
-
-      config
-    rescue StandardError
-      {}
+    def show_welcome_message
+      ::CLI::UI::Frame.open('AWS Pipeline Watcher Configuration', color: :cyan) do
+        puts ::CLI::UI.fmt("{{bold:Welcome!}} Let's set up your monitoring configuration.")
+        puts ""
+        puts "This tool can monitor:"
+        puts "• AWS CodePipeline executions"
+        puts "• AWS CodeBuild project builds"
+        puts ""
+        puts "You'll need AWS credentials with appropriate permissions."
+      end
+      puts ""
     end
 
-    def config_valid?(config)
-      # Check if using AWS CLI or manual credentials
-      if config['use_aws_cli']
-        required_keys = %w[aws_region aws_account_id]
+    def collect_configuration(config_manager)
+      config = {}
+
+      # AWS authentication method
+      use_cli = UI::Components.confirm("Use AWS CLI for authentication? (Recommended)")
+      config['use_aws_cli'] = use_cli
+
+      if use_cli
+        collect_aws_cli_config(config, config_manager)
       else
-        required_keys = %w[aws_access_key_id aws_secret_access_key aws_region aws_account_id]
+        collect_manual_credentials(config)
       end
 
-      # Validate required credentials
-      credentials_valid = required_keys.all? { |key| config[key] && !config[key].to_s.empty? }
+      # AWS region
+      default_region = config_manager.aws_region
+      config['aws_region'] = UI::Components.ask(
+        "AWS Region:",
+        default: default_region
+      )
 
-      # Validate that at least one pipeline or codebuild project is configured
-      has_items = ((config['pipeline_names'] && config['pipeline_names'].is_a?(Array) && !config['pipeline_names'].empty?) ||
-                   (config['codebuild_project_names'] && config['codebuild_project_names'].is_a?(Array) && !config['codebuild_project_names'].empty?))
+      # Pipelines to monitor
+      collect_pipeline_names(config, config_manager)
 
-      !!(credentials_valid && has_items)
+      # CodeBuild projects to monitor
+      collect_build_project_names(config, config_manager)
+
+      config
     end
 
+    def collect_aws_cli_config(config, config_manager)
+      # AWS profile
+      default_profile = config_manager.aws_profile
+      config['aws_profile'] = UI::Components.ask(
+        "AWS CLI Profile:",
+        default: default_profile
+      )
 
+      # Try to detect AWS account ID
+      begin
+        require_relative 'services/pipeline_service'
+        temp_config = Config::Manager.new
+        temp_config.update(config.merge('aws_region' => config_manager.aws_region))
+
+        service = Services::PipelineService.new(temp_config)
+        if service.credentials_valid?
+          # In a real implementation, we'd extract account ID from STS
+          # For simplicity, we'll ask the user
+          UI::Components.info_message("AWS CLI credentials are valid!")
+        else
+          UI::Components.warning_message("Could not validate AWS CLI credentials. Please run 'aws sso login' first.")
+        end
+      rescue => e
+        UI::Components.warning_message("Could not test AWS credentials: #{e.message}")
+      end
+
+      # AWS Account ID
+      default_account_id = config_manager.aws_account_id
+      config['aws_account_id'] = UI::Components.ask(
+        "AWS Account ID (12 digits):",
+        default: default_account_id
+      )
+    end
+
+    def collect_manual_credentials(config)
+      UI::Components.warning_message("Manual credentials are less secure than AWS CLI")
+
+      config['aws_access_key_id'] = UI::Components.ask("AWS Access Key ID:")
+      config['aws_secret_access_key'] = UI::Components.ask("AWS Secret Access Key:")
+      config['aws_account_id'] = UI::Components.ask("AWS Account ID (12 digits):")
+    end
+
+    def collect_pipeline_names(config, config_manager)
+      current_pipelines = config_manager.pipeline_names.join(', ')
+
+      pipelines_input = UI::Components.ask(
+        "Pipeline names to monitor (comma-separated):",
+        default: current_pipelines
+      )
+
+      if pipelines_input && !pipelines_input.strip.empty?
+        config['pipeline_names'] = pipelines_input.split(',').map(&:strip)
+      else
+        config['pipeline_names'] = []
+      end
+    end
+
+    def collect_build_project_names(config, config_manager)
+      current_builds = config_manager.build_project_names.join(', ')
+
+      builds_input = UI::Components.ask(
+        "CodeBuild project names to monitor (comma-separated):",
+        default: current_builds
+      )
+
+      if builds_input && !builds_input.strip.empty?
+        config['codebuild_project_names'] = builds_input.split(',').map(&:strip)
+      else
+        config['codebuild_project_names'] = []
+      end
+    end
   end
 end

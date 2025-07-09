@@ -27,11 +27,10 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
 
   # Runtime dependencies
+  spec.add_dependency 'aws-sdk-codebuild', '~> 1.0'
   spec.add_dependency 'aws-sdk-codepipeline', '~> 1.0'
-  spec.add_dependency 'aws-sdk-sso', '~> 1.0'
-  spec.add_dependency 'aws-sdk-ssooidc', '~> 1.0'
   spec.add_dependency 'aws-sdk-sts', '~> 1.0'
-  spec.add_dependency 'colorize', '~> 0.8'
+  spec.add_dependency 'cli-ui', '~> 1.5'
   spec.add_dependency 'rexml', '~> 3.0'
   spec.add_dependency 'thor', '~> 1.0'
 
