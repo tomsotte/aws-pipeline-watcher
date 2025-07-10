@@ -3,20 +3,18 @@
 require_relative 'lib/pipeline_watcher/version'
 
 Gem::Specification.new do |spec|
-  spec.name = 'pipeline_watcher'
+  spec.name = 'aws-pipeline-watcher'
   spec.version = PipelineWatcher::VERSION
-  spec.authors = ['Pipeline Watcher']
-  spec.email = ['aws-pipeline-watcher@example.com']
+  spec.authors = ['Tommaso Sotte']
+  spec.email = ['tommaso.sotte@gmail.com']
 
   spec.summary = 'A Ruby CLI tool for monitoring AWS CodePipeline statuses'
   spec.description = 'AWS Pipeline Watcher provides live updates showing the status of AWS CodePipelines with real-time monitoring and configuration management.'
-  spec.homepage = 'https://github.com/example/aws-pipeline-watcher'
+  spec.homepage = 'https://github.com/tomsotte/aws-pipeline-watcher'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 3.0.0'
 
-  spec.metadata['homepage_uri'] = spec.homepage
-  spec.metadata['source_code_uri'] = 'https://github.com/example/aws-pipeline-watcher'
-  spec.metadata['changelog_uri'] = 'https://github.com/example/aws-pipeline-watcher/blob/main/CHANGELOG.md'
+  spec.metadata = { "source_code_uri" => "https://github.com/tomsotte/aws-pipeline-watcher" }
 
   # Specify which files should be added to the gem when it is released.
   spec.files = Dir.chdir(__dir__) do
@@ -29,12 +27,12 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
 
   # Runtime dependencies
-  spec.add_dependency 'rexml', '~> 3.0'
   spec.add_dependency 'aws-sdk-codepipeline', '~> 1.0'
-  spec.add_dependency 'aws-sdk-sts', '~> 1.0'
   spec.add_dependency 'aws-sdk-sso', '~> 1.0'
   spec.add_dependency 'aws-sdk-ssooidc', '~> 1.0'
+  spec.add_dependency 'aws-sdk-sts', '~> 1.0'
   spec.add_dependency 'colorize', '~> 0.8'
+  spec.add_dependency 'rexml', '~> 3.0'
   spec.add_dependency 'thor', '~> 1.0'
 
   # Development dependencies
